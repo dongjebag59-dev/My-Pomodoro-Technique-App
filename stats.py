@@ -12,7 +12,6 @@ stats_router = APIRouter(prefix="/stats")
 
 # 요청 스키마
 class SessionRequest(BaseModel):
-    target_date: date
     total_minutes: int
     completed_sessions: int
 
@@ -23,10 +22,11 @@ async def create_session(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    today = date.today()
     result = await db.execute(
         select(StudyRecord).where(
             StudyRecord.user_id == current_user.id,
-            StudyRecord.date == body.target_date
+            StudyRecord.date == today
         )
     )
     record = result.scalars().first()
@@ -37,7 +37,7 @@ async def create_session(
     else:
         record = StudyRecord(
             user_id=current_user.id,
-            date=body.target_date,
+            date=today,
             total_minutes=min(body.total_minutes, 1440),
             completed_sessions=body.completed_sessions,
             goal_achieved=False

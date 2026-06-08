@@ -1025,6 +1025,24 @@
       navigator.serviceWorker.register('/static/sw.js').catch(() => {});
     }
 
+    // ==================== 401 자동 감지 (토큰 만료 시 로그인 페이지 이동) ====================
+    (function() {
+      const _origFetch = window.fetch;
+      window.fetch = async function(...args) {
+        const res = await _origFetch(...args);
+        if (res.status === 401) {
+          const url = typeof args[0] === 'string' ? args[0] : (args[0].url || '');
+          if (!url.includes('/users/login') && !url.includes('/users/signup') && !window._401redirected) {
+            window._401redirected = true;
+            localStorage.removeItem('access_token');
+            alert('로그인이 만료되었습니다. 다시 로그인해주세요.');
+            window.location.href = '/users/login-page';
+          }
+        }
+        return res;
+      };
+    })();
+
     // ==================== 브라우저 알림 권한 요청 ====================
     function initNotifications() {
       if ('Notification' in window && Notification.permission === 'default') {
@@ -1062,6 +1080,7 @@
     let isPaused = false;
     let isFocus = true;
     let remainingTime;
+    let startedAt = null;
 
     const focusDisplay = document.getElementById("focus-time");
     const breakDisplay = document.getElementById("break-time");
@@ -1213,7 +1232,7 @@ async function loadMemos() {
 
     function startTimer() {
       if (!isRunning) {
-        startedAt = new Date(); // 시작 시각 기록
+        startedAt = new Date();
         // 처음 시작
         focusTime = parseInt(document.getElementById("focus-input").value);
         breakTime = parseInt(document.getElementById("break-input").value);
@@ -1280,7 +1299,8 @@ async function loadMemos() {
       isRunning = false;
       isPaused = false;
 
-      const endedAt = new Date(); // 종료 시각 기록
+      if (!startedAt) return; // 시작된 적 없으면 기록 안 함
+      const endedAt = new Date();
 
       // duration = 집중 시간 × 횟수 (분 단위)
       let duration = focusTime * totalCount;
@@ -1308,7 +1328,13 @@ async function loadMemos() {
       breakCircle.style.strokeDashoffset = breakCircumference;
     }
 
-    startBtn.addEventListener("click", startTimer);
+    let _startBtnBusy = false;
+    startBtn.addEventListener("click", () => {
+      if (_startBtnBusy) return;
+      _startBtnBusy = true;
+      startTimer();
+      setTimeout(() => { _startBtnBusy = false; }, 300);
+    });
     stopBtn.addEventListener("click", stopTimer);
 
     /* 초기 상태: ▶ 아이콘 */
@@ -1659,15 +1685,10 @@ async function sendSessionEnd(startedAt, endedAt, duration, exp) {
         started_at: startedAt.toISOString(),
         ended_at: endedAt.toISOString(),
         duration: duration,
-        exp: exp
+        exp: exp,
+        session_type: "focus"
       })
     });
-
-    // 세션 종료 후 StudyRecord 업데이트 호출
-    const targetDate = new Date().toISOString().split("T")[0]; // 오늘 날짜
-    const totalMinutes = duration; // 누적 시간 계산 로직에 맞게 수정
-    const completedSessions = 1;   // 이번 세션을 완료했으니 +1
-    const goalAchieved = false;    // 목표 달성 여부는 로직에 맞게 설정
 
     await fetch("/sessions", {
       method: "POST",
@@ -1676,9 +1697,8 @@ async function sendSessionEnd(startedAt, endedAt, duration, exp) {
         "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify({
-        target_date: new Date().toISOString().split("T")[0], // "YYYY-MM-DD"
-        total_minutes: Number(totalMinutes),
-        completed_sessions: Number(completedSessions)
+        total_minutes: Number(duration),
+        completed_sessions: 1
       })
     });
 
@@ -1829,6 +1849,7 @@ bgmBtn.addEventListener("click", async () => {
   } else {
     bgmBox.style.display = "none";
     stopAudio();
+    if (isMixMode) stopAllMix();
   }
 });
 
@@ -1860,6 +1881,7 @@ let currentIndex = null;
 let isShuffle = false;
 let repeatMode = "all"; // "all", "one", "off"
 let currentTrackId = null; // 현재 재생 중인 곡 ID
+let isManualPlay = false;
 
 // 버튼 상태 업데이트
 function updateButtons(state) {
@@ -1914,16 +1936,14 @@ function playTrack(index) {
 
   audio.onended = () => {
     if (repeatMode === "one") {
-      // 같은 곡 반복
-      playSpecificTrack(track);
+      playTrack(currentIndex);
     } else if (repeatMode === "all") {
       nextTrack();
     } else {
       // repeatMode === "off"
       if (isManualPlay) {
-        // 한 번만 재생하고 끝나면 체크된 곡들로 돌아감
         isManualPlay = false;
-        nextTrack(); // 체크된 곡들로 넘어가기
+        nextTrack();
       } else {
         updateButtons("stopped");
       }

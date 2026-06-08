@@ -150,6 +150,9 @@ ACCESS_TOKEN_EXPIRE_HOURS=2
 
 # AI
 GEMINI_API_KEY=your_gemini_api_key
+
+# CORS (ai_service 독립 실행 시, 콤마로 복수 지정 가능)
+ALLOWED_ORIGINS=http://localhost:8000
 ```
 
 ---

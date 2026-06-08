@@ -21,6 +21,7 @@ class SessionResult(BaseModel):
     ended_at : datetime
     duration : int
     exp: int
+    session_type: Optional[str] = "focus"
 
 class MemoWrite(BaseModel):
     id: Optional[int] = None
@@ -188,6 +189,7 @@ async def session_end(body:SessionResult, current_user=Depends(get_current_user)
         ended_at = body.ended_at,
         duration = body.duration,
         is_completed = True,
+        session_type = body.session_type or "focus",
     )
     db.add(session_detail)
     
