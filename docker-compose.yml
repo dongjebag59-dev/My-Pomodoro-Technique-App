@@ -1,0 +1,77 @@
+services:
+  app:
+    build:
+    #custom image build
+      context: .
+      #현재 폴더의 파일들로 만든다
+      dockerfile: dockerfile
+    container_name: toti-app
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+      #toti-app 컨테이너가 내부적으로(networks:toti-network) 8000포트를 쓰겠다
+    volumes:
+      - ./bgms:/app/bgms
+      - ./templates:/app/templates
+    networks:
+      - toti-network
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
+  db:
+    image: postgres:16
+    container_name: toti-db
+    restart: always
+    env_file: 
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - toti-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20      
+
+  nginx:
+    image: nginx:latest
+    container_name: toti-nginx
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./bgms:/app/bgms:ro
+      - ./templates:/app/templates:ro
+      - ./nginx/letsencrypt:/etc/letsencrypt:ro
+      - ./nginx/certbot:/var/www/certbot
+    networks:
+      - toti-network
+
+  certbot:
+    image: certbot/certbot
+    container_name: toti-certbot
+    volumes:
+      - ./nginx/letsencrypt:/etc/letsencrypt
+      - ./nginx/certbot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  postgres_data:
+
+networks:
+  toti-network:
+    driver: bridge

@@ -1,0 +1,2438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>토티 - 뽀모도로 타이머</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#e53935">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="/static/tomato.png">
+  <style>
+    /* ===== 토마토 테마 CSS 변수 ===== */
+    :root {
+      --tomato:       #e53935;
+      --tomato-light: #ef9a9a;
+      --tomato-dark:  #b71c1c;
+      --tomato-pale:  #fff8f7;
+      --tomato-muted: #ffcdd2;
+      --green:        #4caf50;
+      --green-light:  #a5d6a7;
+      --bg:           #fff3f0;
+      --card:         #ffffff;
+      --text:         #2d2d2d;
+      --text-sub:     #888888;
+      --border:       #f5c6c0;
+      --shadow:       rgba(229, 57, 53, 0.12);
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+
+    * { box-sizing: border-box; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      height: auto;
+      overflow-y: auto;
+      font-family: 'Nunito', sans-serif;
+      color: var(--text);
+      background-color: var(--bg);
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='187' height='187' viewBox='0 0 187 187'%3E%3Cg transform='translate(94,105) rotate(30)'%3E%3Ccircle cx='0' cy='0' r='20' fill='%23e5393520'/%3E%3Cellipse cx='0' cy='-22' rx='3' ry='7' fill='%234caf5025'/%3E%3Cellipse cx='-9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(-30 -9 -19)'/%3E%3Cellipse cx='9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(30 9 -19)'/%3E%3C/g%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='187' height='187' viewBox='0 0 187 187'%3E%3Cg transform='translate(94,105) rotate(30)'%3E%3Ccircle cx='0' cy='0' r='20' fill='%23e5393520'/%3E%3Cellipse cx='0' cy='-22' rx='3' ry='7' fill='%234caf5025'/%3E%3Cellipse cx='-9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(-30 -9 -19)'/%3E%3Cellipse cx='9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(30 9 -19)'/%3E%3C/g%3E%3C/svg%3E");
+      background-position: 0 94px, 94px 0;
+      background-repeat: repeat;
+      background-size: 187px 187px;
+    }
+
+    /* ===== 캐릭터 + 타이머 래퍼 ===== */
+    .timer-wrapper {
+      position: relative;
+      width: 567px;
+      height: 567px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 0px;
+      margin-top: -40px;
+    }
+
+    .tomato-character {
+      position: absolute;
+      width: 567px;
+      height: 567px;
+      object-fit: contain;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ===== 타이머 원형 ===== */
+    .timer-container {
+      position: absolute;
+      width: 216px;
+      height: 216px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, 10%);
+      z-index: 1;
+      filter: drop-shadow(0 4px 12px var(--shadow));
+    }
+
+    .circle {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    #focus-circle {
+      fill: none;
+      stroke-width: 40;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset 1s linear;
+      stroke: var(--tomato);
+    }
+
+    #break-circle {
+      fill: none;
+      stroke-width: 20;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset 1s linear;
+      stroke: var(--green);
+    }
+
+    /* ===== 중앙 시간 표시 ===== */
+    .time-box {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #fff5f4, #ffe8e6);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border: 3px solid var(--tomato-muted);
+    }
+
+    .counter {
+      font-size: 1em;
+      color: var(--tomato);
+      margin-bottom: 8px;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+
+    .big-time {
+      font-size: 2.2em;
+      font-weight: 800;
+      color: var(--tomato-dark);
+      letter-spacing: 2px;
+    }
+
+    .small-time {
+      font-size: 1.1em;
+      color: var(--green);
+      margin-top: 8px;
+      font-weight: 600;
+    }
+
+    /* ===== 하단 바 ===== */
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: min(800px, 95vw);
+      margin-top: 10px;
+      padding: clamp(8px, 1.5vw, 16px) clamp(12px, 2vw, 24px);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      background: var(--card);
+      box-shadow: 0 4px 20px var(--shadow);
+    }
+
+    /* ===== 입력 박스 ===== */
+    .inputs {
+      display: flex;
+      gap: clamp(6px, 1.5vw, 15px);
+      font-size: clamp(0.7em, 1.5vw, 1.1em);
+      font-weight: 600;
+      color: var(--text-sub);
+    }
+
+    .inputs label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .inputs input {
+      width: clamp(45px, 7vw, 70px);
+      font-size: clamp(0.75em, 1.5vw, 1.1em);
+      text-align: center;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: clamp(3px, 0.5vw, 6px) 4px;
+      background: var(--tomato-pale);
+      color: var(--tomato-dark);
+      font-weight: 700;
+      font-family: 'Nunito', sans-serif;
+      transition: border 0.2s;
+    }
+
+    .inputs input:focus {
+      outline: none;
+      border-color: var(--tomato);
+    }
+
+    /* ===== 컨트롤 버튼 ===== */
+    .controls {
+      display: flex;
+      flex-direction: row;
+      gap: clamp(5px, 1vw, 10px);
+    }
+
+    .controls button {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: clamp(32px, 5vw, 50px);
+      height: clamp(32px, 5vw, 50px);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: var(--tomato-pale);
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .controls button:hover {
+      background: var(--tomato-muted);
+      transform: scale(1.05);
+    }
+
+    .controls svg {
+      width: clamp(14px, 2.5vw, 24px);
+      height: clamp(14px, 2.5vw, 24px);
+      fill: var(--tomato);
+    }
+
+    /* ===== 메모 박스 ===== */
+    .memo-box {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      width: 300px;
+      height: 400px;
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      background: var(--card);
+      box-shadow: 0 8px 24px var(--shadow);
+      resize: both;
+      overflow: hidden;
+      z-index: 1000;
+      display: none;
+    }
+
+    .memo-header {
+      background: linear-gradient(90deg, var(--tomato), var(--tomato-light));
+      padding: 8px 12px;
+      cursor: move;
+      font-weight: 700;
+      color: white;
+      border-bottom: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 14px 14px 0 0;
+    }
+
+    .memo-header button {
+      background: rgba(255,255,255,0.3);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+
+    .memo-header button:hover {
+      background: rgba(255,255,255,0.5);
+    }
+
+    .memo-content {
+      padding: 10px;
+      height: calc(100% - 40px);
+      overflow-y: auto;
+    }
+
+    .memo-item {
+      border: 1px solid var(--tomato-muted);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+
+    .memo-title {
+      background: var(--tomato-pale);
+      padding: 6px 10px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      font-size: 0.9em;
+    }
+
+    .memo-title span {
+      flex-grow: 1;
+      color: var(--tomato-dark);
+    }
+
+    .memo-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .memo-actions button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95em;
+    }
+
+    .memo-body {
+      display: none;
+      padding: 8px 10px;
+      background: #fffafa;
+      font-size: 0.9em;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .memo-title span.placeholder,
+    .memo-body.placeholder {
+      color: #ccc;
+      font-style: italic;
+    }
+
+    /* ===== 우측 상단 버튼 ===== */
+    /* ===== 페이지 전체 래퍼 ===== */
+    .page-wrapper {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 800px;
+      width: 100%;
+      padding: 20px 0 34px 0;
+    }
+
+    .top-right-buttons {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      z-index: 2000;
+    }
+
+    .toti-logo {
+      width: 150px;
+      height: auto;
+      display: block;
+      margin-bottom: 6px;
+      filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
+      pointer-events: none;
+}
+
+    .circle-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, var(--tomato), var(--tomato-dark));
+      box-shadow: 0 4px 12px var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .circle-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 18px rgba(229, 57, 53, 0.3);
+    }
+
+    .circle-btn svg {
+      width: 24px;
+      height: 24px;
+      fill: white;
+    }
+
+    /* ===== BGM 박스 ===== */
+    .bgm-box {
+      position: fixed;
+      top: 100px;
+      left: 100px;
+      width: 300px;
+      height: 400px;
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      background: var(--card);
+      box-shadow: 0 8px 24px var(--shadow);
+      z-index: 1000;
+      display: none;
+      overflow: hidden;
+    }
+
+    .bgm-header {
+      background: linear-gradient(90deg, var(--tomato), var(--tomato-light));
+      padding: 8px 12px;
+      cursor: move;
+      font-weight: 700;
+      color: white;
+      border-bottom: none;
+      border-radius: 14px 14px 0 0;
+    }
+
+    .bgm-progress {
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+    }
+
+    #progress-bar {
+      width: 100%;
+      cursor: pointer;
+      accent-color: var(--tomato);
+    }
+
+    .time-display {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85em;
+      margin-top: 4px;
+      color: var(--text-sub);
+    }
+
+    .bgm-controls {
+      display: flex;
+      justify-content: space-around;
+      padding: 10px;
+    }
+
+    .bgm-controls button {
+      background: var(--tomato-pale);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 6px 10px;
+      font-size: 1.1em;
+      transition: background 0.2s;
+    }
+
+    .bgm-controls button:hover {
+      background: var(--tomato-muted);
+    }
+
+    .track-list {
+      height: calc(100% - 120px);
+      overflow-y: auto;
+      padding: 8px 10px;
+    }
+
+    .track-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: var(--tomato-pale);
+      border: 1px solid var(--border);
+      gap: 6px;
+      font-size: 0.9em;
+    }
+
+    .track-item button {
+      background: var(--tomato);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 3px 8px;
+      cursor: pointer;
+      font-size: 0.85em;
+      transition: background 0.2s;
+    }
+
+    .track-item button:hover {
+      background: var(--tomato-dark);
+    }
+
+    .drag-handle {
+      color: var(--text-sub);
+      cursor: grab;
+      font-size: 1.1em;
+      user-select: none;
+    }
+
+    /* ===== 셔플 버튼 ===== */
+    #shuffle-btn {
+      position: relative;
+      font-size: 20px;
+      background: var(--tomato-pale);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #shuffle-btn:hover {
+      background: var(--tomato-muted);
+    }
+
+    #shuffle-btn.off::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--tomato-dark);
+      transform: rotate(-45deg);
+    }
+
+/* 반복버튼 */
+#repeat-btn {
+  position: relative;
+  font-size: 24px;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#repeat-btn.off::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: black; /* 검은색 사선 */
+  transform: rotate(-45deg);
+}
+
+.track-item {
+  display: flex;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid #ccc;
+  margin-bottom: 4px;
+  background: #fff;
+  transition: transform 0.2s ease; /* 부드럽게 밀려나는 효과 */
+}
+
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+  margin-right: 8px;
+}
+
+.dragging {
+  opacity: 0.5;
+}
+
+.favorite {
+  cursor: pointer;   /* 별표 클릭 시 손 모양 */
+}
+
+.track-item input[type="checkbox"] {
+  cursor: pointer;   /* 체크박스도 손 모양 */
+}
+
+/* ===== 벚꽃 애니메이션 ===== */
+#cherry-blossom-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.petal {
+  position: absolute;
+  top: -20px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50% 0 50% 0;
+  opacity: 0.85;
+  animation: petalFall linear infinite;
+}
+
+/* AI 팝업 박스 */
+.ai-box {
+  position: fixed;
+  top: 100px;
+  left: 140px;
+  width: 320px;
+  max-height: 480px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+  z-index: 1000;
+  display: none;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.ai-header {
+  background: #f0f0f0;
+  padding: 8px 12px;
+  cursor: move;
+  font-weight: bold;
+  border-bottom: 1px solid #ccc;
+  font-size: 0.95em;
+  user-select: none;
+}
+
+.ai-body {
+  padding: 14px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.ai-form-group {
+  margin-bottom: 12px;
+}
+
+.ai-form-group label {
+  display: block;
+  font-size: 0.85em;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.ai-form-group select,
+.ai-form-group input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.9em;
+  background: #f9f9f9;
+}
+
+.ai-form-group select:focus,
+.ai-form-group input:focus {
+  outline: none;
+  border-color: #e57373;
+  background: #fff;
+}
+
+.ai-submit-btn {
+  width: 100%;
+  padding: 10px;
+  background: #e57373;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 14px;
+}
+
+.ai-submit-btn:hover {
+  background: #ef9a9a;
+}
+
+.ai-submit-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.ai-result {
+  display: none;
+}
+
+.ai-message {
+  font-size: 0.85em;
+  color: #555;
+  line-height: 1.5;
+  background: #fdecea;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.ai-plan-card {
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #fafafa;
+}
+
+.ai-plan-rank {
+  font-size: 0.75em;
+  color: #e57373;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.ai-plan-title {
+  font-size: 0.9em;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.ai-plan-detail {
+  font-size: 0.8em;
+  color: #666;
+  line-height: 1.6;
+}
+
+.ai-loading {
+  text-align: center;
+  color: #aaa;
+  font-size: 0.85em;
+  padding: 20px 0;
+  display: none;
+}
+
+
+/* ===== BGM 모드 토글 ===== */
+.bgm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mode-toggle { display: flex; gap: 4px; }
+
+.mode-btn {
+  padding: 3px 9px;
+  font-size: 0.78em;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.mode-btn.active { background: rgba(255,255,255,0.55); }
+.mode-btn:hover:not(.active) { background: rgba(255,255,255,0.35); }
+
+/* ===== 믹스 모드 ===== */
+.mix-master {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82em;
+  color: var(--text-sub);
+}
+
+.mix-master input[type=range] { flex: 1; accent-color: var(--tomato); }
+
+.track-item.mix-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--tomato-pale);
+  border: 1px solid var(--border);
+  margin-bottom: 5px;
+}
+
+.track-item.mix-row .track-title { flex: 1; font-size: 0.88em; }
+
+.track-vol {
+  width: 70px;
+  accent-color: var(--tomato);
+  cursor: pointer;
+}
+
+/* ===== 오늘 공부 중인 인원 ===== */
+.active-users-bar {
+  font-size: 0.78em;
+  color: var(--text-sub);
+  text-align: center;
+  margin-top: -12px;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.active-users-bar span {
+  display: inline-block;
+  background: rgba(229,57,53,0.08);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 14px;
+}
+
+@keyframes petalFall {
+  0% {
+    transform: translateY(0) rotate(0deg) translateX(0);
+    opacity: 0.9;
+  }
+  25% {
+    transform: translateY(25vh) rotate(90deg) translateX(20px);
+  }
+  50% {
+    transform: translateY(50vh) rotate(180deg) translateX(-15px);
+  }
+  75% {
+    transform: translateY(75vh) rotate(270deg) translateX(25px);
+  }
+  100% {
+    transform: translateY(108vh) rotate(360deg) translateX(-10px);
+    opacity: 0;
+  }
+}
+  </style>
+</head>
+<body>
+  <!-- 벚꽃 컨테이너 -->
+  <div id="cherry-blossom-container"></div>
+
+  <!-- 메모 관련 -->
+  <div id="memo-box" class="memo-box">
+    <div id="memo-header" class="memo-header">
+      메모
+      <button id="add-memo-btn">+</button>
+    </div>
+    <div id="memo-content" class="memo-content">
+      <!-- 메모 항목들이 여기에 추가됨 -->
+    </div>
+  </div>
+
+<!-- bgm 관련 -->
+  <div id="bgm-box" class="bgm-box" style="display:none;">
+    <div id="bgm-header" class="bgm-header">
+      <span>플레이어</span>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mode-player-btn" title="플레이어 모드">🎵</button>
+        <button class="mode-btn" id="mode-mix-btn" title="믹스 모드">🎛️</button>
+      </div>
+    </div>
+
+    <!-- 플레이어 모드 UI -->
+    <div id="player-ui">
+      <div class="bgm-progress">
+        <input type="range" id="progress-bar" value="0" min="0" max="100">
+        <div class="time-display">
+          <span id="current-time">0:00</span>
+          <span id="total-time">0:00</span>
+        </div>
+      </div>
+      <div class="bgm-controls">
+        <button id="shuffle-btn">🔀</button>
+        <button id="prev-btn">⏮</button>
+        <button id="play-btn">▶</button>
+        <button id="pause-btn" style="display:none;">⏸</button>
+        <button id="next-btn">⏭</button>
+        <button id="repeat-btn">🔁</button>
+      </div>
+    </div>
+
+    <!-- 믹스 모드 UI -->
+    <div id="mix-ui" style="display:none;">
+      <div class="mix-master">
+        <span>🔊 전체</span>
+        <input type="range" id="master-volume" min="0" max="100" value="70">
+        <span id="master-vol-label">70%</span>
+      </div>
+    </div>
+
+    <!-- 트랙 리스트 (모드 공통) -->
+    <div id="track-list" class="track-list">
+    </div>
+  </div>
+
+    <!-- AI 플랜 팝업 -->
+  <div id="ai-box" class="ai-box">
+    <div id="ai-header" class="ai-header">🍅 토티 AI 플랜 추천</div>
+    <div class="ai-body">
+      <div class="ai-form-group">
+        <label for="ai-study-type">공부 유형</label>
+        <select id="ai-study-type">
+          <option value="memorization">암기형 (단어, 용어 등)</option>
+          <option value="comprehension">이해형 (개념, 독서 등)</option>
+          <option value="problem_solving">문제풀이형 (수학, 코딩 등)</option>
+          <option value="practice">실습형 (프로젝트, 실험 등)</option>
+        </select>
+      </div>
+      <div class="ai-form-group">
+        <label>총 공부 시간 <span style="color:#aaa; font-size:0.8em;">(30분~8시간)</span></label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="number" id="ai-hours" min="0" max="8" placeholder="0" value="2" style="width:60px; text-align:center;">
+          <span style="font-size:0.9em; color:#555;">시간</span>
+          <input type="number" id="ai-mins" min="0" max="30" step="30" placeholder="0" value="0" style="width:60px; text-align:center;">
+          <span style="font-size:0.9em; color:#555;">분</span>
+        </div>
+      </div>
+      <button class="ai-submit-btn" id="ai-submit-btn">추천 받기</button>
+
+      <div class="ai-loading" id="ai-loading">추천 플랜 생성 중...</div>
+
+      <div class="ai-result" id="ai-result">
+        <div class="ai-message" id="ai-message"></div>
+        <div id="ai-plan-list"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 페이지 래퍼 시작 -->
+  <div class="page-wrapper">
+
+
+  <!-- 우측 상단 버튼 -->
+  <div class="top-right-buttons">
+    <img class="toti-logo" src="/static/toti-logo.png" alt="Toti 로고">
+    <!-- 마이페이지 버튼 -->
+    <button class="circle-btn" id="mypage-btn" title="마이페이지">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 
+                2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 
+                5v3h20v-3c0-3.3-6.7-5-10-5z"/>
+      </svg>
+    </button>
+
+    <!-- 메모 버튼 -->
+    <button class="circle-btn" id="memo-btn" title="메모">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M3 4v16h18V4H3zm16 14H5V6h14v12zM7 
+                8h10v2H7V8zm0 4h10v2H7v-2z"/>
+      </svg>
+    </button>
+
+    <!-- BGM 버튼 -->
+    <button class="circle-btn" id="bgm-btn" title="bgm">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M12 3v10.55A4 4 0 1 0 14 
+                17V7h4V3h-6z"/>
+      </svg>
+    </button>
+
+
+    <!-- AI 추천 버튼 -->
+    <button class="circle-btn" id="ai-btn" title="AI 플랜 추천">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 
+                10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 
+                12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 
+                0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+      </svg>
+    </button>
+
+    <!-- 로그인/로그아웃 버튼 -->
+    <button class="circle-btn" id="login-btn" title="로그인">
+      <!-- 기본은 로그인 아이콘 -->
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M10 17l5-5-5-5v10zm9-12H9c-1.1 
+                0-2 .9-2 2v3h2V7h10v10H9v-3H7v3c0 
+                1.1.9 2 2 2h10c1.1 0 2-.9 
+                2-2V7c0-1.1-.9-2-2-2z"/>
+      </svg>
+    </button>
+  </div>
+  
+  <!-- 캐릭터 + 타이머 래퍼 -->
+  <div class="timer-wrapper">
+    <!-- 토마토 캐릭터 (뒤) -->
+    <img class="tomato-character" src="/static/tomatodoll.png" alt="tomato">
+
+    <!-- 타이머 (앞, 캐릭터 배 위치에 겹침) -->
+    <div class="timer-container">
+      <!-- 집중 타이머 (빨간색 원형) -->
+      <svg class="circle" width="216" height="216">
+        <circle id="focus-circle" cx="108" cy="108" r="81" />
+      </svg>
+
+      <!-- 휴식 타이머 (녹색 원형) -->
+      <svg class="circle" width="216" height="216">
+        <circle id="break-circle" cx="108" cy="108" r="67" />
+      </svg>
+
+      <div class="time-box">
+        <div class="counter" id="counter">0/4</div>
+        <div class="big-time" id="focus-time">25:00</div>
+        <div class="small-time" id="break-time">05:00</div>
+      </div>
+    </div>
+  </div>
+
+
+<!-- 오늘 공부 인원 -->
+<div class="active-users-bar">
+  <span>오늘 <strong id="active-users-count">0</strong>명이 공부했어요</span>
+</div>
+
+<!-- 하단 입력 + 버튼을 한 줄로 -->
+<div class="bottom-bar">
+  <div class="inputs">
+    <label>집중 <input type="number" id="focus-input" value="25"></label>
+    <label>휴식 <input type="number" id="break-input" value="5"></label>
+    <label>횟수 <input type="number" id="count-input" value="4"></label>
+  </div>
+  <div class="controls">
+    <!-- 재생 버튼 -->
+    <button id="start-btn">
+      <svg id="start-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M8 5v14l11-7z"/> <!-- ▶ 아이콘 -->
+      </svg>
+    </button>
+
+    <!-- 정지 버튼 -->
+    <button id="stop-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <rect x="6" y="6" width="12" height="12"/> <!-- ■ 아이콘 -->
+      </svg>
+    </button>
+  </div>
+</div>
+
+  </div><!-- page-wrapper 끝 -->
+
+  <script>
+    // ==================== PWA 서비스 워커 등록 ====================
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+    }
+
+    // ==================== 브라우저 알림 권한 요청 ====================
+    function initNotifications() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+    initNotifications();
+
+    function sendBrowserNotification(title, body) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const n = new Notification(title, { body, icon: '/static/tomato.png', silent: false });
+        setTimeout(() => n.close(), 6000);
+      }
+    }
+
+    // ==================== 오늘 공부 인원 ====================
+    async function fetchActiveUsers() {
+      try {
+        const res = await fetch('/timer/api/active-users');
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('active-users-count').textContent = data.count;
+        }
+      } catch (_) {}
+    }
+    fetchActiveUsers();
+    setInterval(fetchActiveUsers, 60000); // 1분마다 갱신
+
+    let focusTime = 25;
+    let breakTime = 5;
+    let totalCount;
+    let currentCount = 0;
+    let timer = null;
+    let isRunning = false;
+    let isPaused = false;
+    let isFocus = true;
+    let remainingTime;
+
+    const focusDisplay = document.getElementById("focus-time");
+    const breakDisplay = document.getElementById("break-time");
+    const counterDisplay = document.getElementById("counter");
+    const startBtn = document.getElementById("start-btn");
+    const stopBtn = document.getElementById("stop-btn");
+
+    const focusCircle = document.getElementById("focus-circle");
+    const breakCircle = document.getElementById("break-circle");
+    const memoContent = document.getElementById("memo-content");
+    // 원 둘레 계산
+    const focusCircumference = 2 * Math.PI * 81; // r=81
+    const breakCircumference = 2 * Math.PI * 67;  // r=67
+
+
+
+async function loadMemos() {
+  try {
+    const token = localStorage.getItem("access_token");
+
+    const res = await fetch("/timer/api/memos", {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+
+    memoContent.innerHTML = "";
+
+    data.memos.forEach(m => {
+      const memoItem = document.createElement("div");
+      memoItem.className = "memo-item";
+      memoItem.dataset.id = m.id; // id 저장
+
+      memoItem.innerHTML = `
+        <div class="memo-title">
+          <span>${m.title}</span>
+          <div class="memo-actions">
+            <button class="edit-btn">✏️</button>
+            <button class="delete-btn">🗑️</button>
+          </div>
+        </div>
+        <div class="memo-body" style="display:none;">불러오기 전 내용...</div>
+      `;
+
+      memoContent.appendChild(memoItem);
+
+      // 서버 메모는 placeholder 적용 X
+      attachMemoEvents(memoItem, false);
+    });
+  } catch (err) {
+    console.error("메모 불러오기 실패", err);
+  }
+}
+
+    focusCircle.style.strokeDasharray = focusCircumference;
+    focusCircle.style.strokeDashoffset = focusCircumference;
+
+    breakCircle.style.strokeDasharray = breakCircumference;
+    breakCircle.style.strokeDashoffset = breakCircumference;
+
+    /* ▶ 아이콘 */
+    function setPlayIcon() {
+      startBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z"/>
+        </svg>`;
+    }
+
+    /* ⏸ 아이콘 */
+    function setPauseIcon() {
+      startBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path d="M6 19h4V5H6zm8-14v14h4V5z"/>
+        </svg>`;
+    }
+
+    // 시간 포맷 함수
+    function formatTime(seconds) {
+      const m = String(Math.floor(seconds / 60)).padStart(2, "0");
+      const s = String(seconds % 60).padStart(2, "0");
+      return `${m}:${s}`;
+    }
+    
+    // 입력창 변수 선언 (아랫부분에서 추가)
+    const focusInput = document.getElementById("focus-input");
+    const breakInput = document.getElementById("break-input");
+    const countInput = document.getElementById("count-input");
+
+
+    // 표시 업데이트 함수
+    function updateDisplays() {
+      focusTime = parseInt(focusInput.value) || 0;
+      breakTime = parseInt(breakInput.value) || 0;
+      totalCount = parseInt(countInput.value) || 0;
+      currentCount = 0;
+
+      focusDisplay.textContent = formatTime(focusTime * 60);
+      breakDisplay.textContent = formatTime(breakTime * 60);
+      counterDisplay.textContent = `${currentCount}/${totalCount}`;
+    }
+
+    // 입력값 변경 시 즉시 반영
+    focusInput.addEventListener("input", updateDisplays);
+    breakInput.addEventListener("input", updateDisplays);
+    countInput.addEventListener("input", updateDisplays);
+
+    // 서버에서 값 가져오기
+    async function loadTimerData() {
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await fetch("/timer/api/timer-data", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // 서버 값 반영
+        focusTime = data.focus_time;
+        breakTime = data.break_time;
+
+        // 입력창에 값 넣기
+        document.getElementById("focus-input").value = focusTime;
+        document.getElementById("break-input").value = breakTime;
+
+        // 표시 업데이트 호출
+        updateDisplays();
+      } catch (err) {
+        console.error("타이머 데이터 불러오기 실패", err);
+      }
+    }
+
+    // 초기 표시
+    updateDisplays();
+
+    // 페이지 로드 시 서버 값 불러오기
+    loadTimerData();
+
+    function updateProgress() {
+      if (isFocus) {
+        const progress = remainingTime / (focusTime * 60);
+        focusCircle.style.strokeDashoffset = focusCircumference * progress;
+      } else {
+        const progress = remainingTime / (breakTime * 60);
+        breakCircle.style.strokeDashoffset = breakCircumference * progress;
+      }
+    }
+
+    function startTimer() {
+      if (!isRunning) {
+        startedAt = new Date(); // 시작 시각 기록
+        // 처음 시작
+        focusTime = parseInt(document.getElementById("focus-input").value);
+        breakTime = parseInt(document.getElementById("break-input").value);
+        totalCount = parseInt(document.getElementById("count-input").value);
+        currentCount = 0;
+        isFocus = true;
+        remainingTime = focusTime * 60;
+        updateDisplays();
+        runInterval();
+        isRunning = true;
+        isPaused = false;
+        setPauseIcon(); // ▶ → ⏸
+      } else if (!isPaused) {
+        // 실행 중 → 일시정지
+        clearInterval(timer);
+        timer = null;
+        isPaused = true;
+        setPlayIcon(); // ⏸ → ▶
+      } else {
+        // 일시정지 상태 → 재개
+        runInterval();
+        isPaused = false;
+        setPauseIcon(); // ▶ → ⏸
+      }
+    }
+
+    function runInterval() {
+      timer = setInterval(runTimer, 1000);
+    }
+
+    function runTimer() {
+      remainingTime--;
+      if (isFocus) {
+        focusDisplay.textContent = formatTime(remainingTime);
+      } else {
+        breakDisplay.textContent = formatTime(remainingTime);
+      }
+
+      updateProgress(); // 진행률 업데이트
+
+      if (remainingTime <= 0) {
+        if (isFocus) {
+          currentCount++;
+          counterDisplay.textContent = `${currentCount}/${totalCount}`;
+          if (currentCount >= totalCount) {
+            sendBrowserNotification('🍅 모든 세션 완료!', `${totalCount}세션 달성! 오늘도 정말 수고했어요.`);
+            stopTimer(false); // 정상 완료
+            return;
+          }
+          sendBrowserNotification('✅ 집중 완료!', `${currentCount}/${totalCount} 세션 완료! 잠시 휴식하세요.`);
+          isFocus = false;
+          remainingTime = breakTime * 60;
+        } else {
+          sendBrowserNotification('⏰ 휴식 종료!', '다시 집중을 시작해볼까요?');
+          isFocus = true;
+          remainingTime = focusTime * 60;
+        }
+      }
+    }
+
+    function stopTimer(isStoppedEarly = true) {
+      clearInterval(timer);
+      timer = null;
+      isRunning = false;
+      isPaused = false;
+
+      const endedAt = new Date(); // 종료 시각 기록
+
+      // duration = 집중 시간 × 횟수 (분 단위)
+      let duration = focusTime * totalCount;
+
+      // exp = 집중 × 횟수 + 휴식 × (횟수 - 1)
+      let exp = focusTime * totalCount + breakTime * (totalCount - 1);
+
+      // 중간 정지라면 진행된 시간만 exp 반영
+      if (isStoppedEarly) {
+        const totalSeconds = (focusTime * 60 * totalCount) + (breakTime * 60 * (totalCount - 1));
+        const elapsedSeconds = totalSeconds - remainingTime;
+        exp = Math.floor(elapsedSeconds / 60);
+
+        // duration도 반영
+        const elapsedFocusSeconds = Math.min(elapsedSeconds, focusTime * 60 * totalCount);
+        duration = Math.floor(elapsedFocusSeconds / 60);
+      }
+
+      sendSessionEnd(startedAt, endedAt, duration, exp);
+
+      currentCount = 0;
+      updateDisplays();
+      setPlayIcon();
+      focusCircle.style.strokeDashoffset = focusCircumference;
+      breakCircle.style.strokeDashoffset = breakCircumference;
+    }
+
+    startBtn.addEventListener("click", startTimer);
+    stopBtn.addEventListener("click", stopTimer);
+
+    /* 초기 상태: ▶ 아이콘 */
+    setPlayIcon();
+
+    // 우상단 버튼들
+
+    // 버튼 요소 가져오기
+    const mypageBtn = document.getElementById("mypage-btn");
+    const memoToggleBtn = document.getElementById("memo-btn");
+    const memoBox = document.getElementById("memo-box");
+
+    // 공통 로그인 체크 함수
+    async function ensureLogin() {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          const goLogin = confirm("로그인이 필요합니다");
+          if (goLogin) window.location.href = "/users/login-page";
+          return false;
+        }
+
+        const res = await fetch("/timer/api/timer-data", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          const goLogin = confirm("로그인이 필요합니다");
+          if (goLogin) window.location.href = "/users/login-page";
+          return false;
+        }
+
+        return true; // 로그인 성공
+      } catch (err) {
+        console.error("서버 연결 실패", err);
+        alert("서버와 연결할 수 없습니다.");
+        return false;
+      }
+    }
+
+    // 마이페이지 버튼
+    mypageBtn.addEventListener("click", async () => {
+      const loggedIn = await ensureLogin();
+      if (!loggedIn) return;
+      window.location.href = "/users/mypage-page";
+    });
+
+
+    // 메모 버튼
+    memoToggleBtn.addEventListener("click", async () => {
+      const loggedIn = await ensureLogin();
+      if (!loggedIn) return;
+
+      // 로그인된 상태 → 메모 박스 토글
+      if (memoBox.style.display === "none" || memoBox.style.display === "") {
+        memoBox.style.display = "block";
+        loadMemos(); // 박스 열릴 때 메모 목록 불러오기
+      } else {
+        memoBox.style.display = "none";
+      }
+    });
+
+    // // 비 로그인 테스트용
+    // memoToggleBtn.addEventListener("click", () => {
+    //   if (memoBox.style.display === "none" || memoBox.style.display === "") {
+    //     memoBox.style.display = "block"; // 열기
+    //   } else {
+    //     memoBox.style.display = "none";  // 닫기
+    //   }
+    // });
+
+    // 여기서부터는 메모
+    const memoHeader = document.getElementById("memo-header");
+
+
+    let isDragging = false;
+    let offsetX, offsetY;
+
+
+
+    memoHeader.addEventListener("mousedown", (e) => {
+      isDragging = true;
+      offsetX = e.clientX - memoBox.offsetLeft;
+      offsetY = e.clientY - memoBox.offsetTop;
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (isDragging) {
+        memoBox.style.left = (e.clientX - offsetX) + "px";
+        memoBox.style.top = (e.clientY - offsetY) + "px";
+      }
+    });
+
+    document.addEventListener("mouseup", () => {
+      isDragging = false;
+    });
+
+
+
+    const addMemoBtn = document.getElementById("add-memo-btn");
+
+    // 메모 추가
+    addMemoBtn.addEventListener("click", () => {
+      const memoItem = document.createElement("div");
+      memoItem.className = "memo-item";
+
+      memoItem.innerHTML = `
+        <div class="memo-title">
+          <span>새 메모 제목</span>
+          <div class="memo-actions">
+            <button class="edit-btn">✏️</button>
+            <button class="delete-btn">🗑️</button>
+          </div>
+        </div>
+        <div class="memo-body">메모 내용을 입력하세요...</div>
+      `;
+
+      memoContent.appendChild(memoItem);
+
+      attachMemoEvents(memoItem);
+
+      // 새 메모는 바로 편집 모드로 시작
+      const editBtn = memoItem.querySelector(".edit-btn");
+      editBtn.click();
+    });
+
+
+// 메모 이벤트 연결
+function attachMemoEvents(memoItem, isNew = true) {
+  const title = memoItem.querySelector(".memo-title span");
+  const body = memoItem.querySelector(".memo-body");
+  const editBtn = memoItem.querySelector(".edit-btn");
+  const deleteBtn = memoItem.querySelector(".delete-btn");
+
+  if (isNew) {
+    setPlaceholder(title, "새 메모 제목");
+    setPlaceholder(body, "메모 내용을 입력하세요...");
+  }
+
+  // 타이틀 클릭 → 서버 내용 불러오기 + 펼치기/접기
+  title.addEventListener("click", async () => {
+    if (editBtn.textContent === "✏️") {
+      if (body.style.display === "none" || body.style.display === "") {
+        const memoId = memoItem.dataset.id;
+        if (memoId) {
+          try {
+            const token = localStorage.getItem("access_token");
+            const res = await fetch(`/timer/memo/${memoId}`, {
+              headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (res.ok) {
+              const memoData = await res.json();
+              body.textContent = memoData.content; // 서버에서 실제 내용 불러오기
+            } else {
+              console.error("메모 내용 불러오기 실패", await res.text());
+            }
+          } catch (err) {
+            console.error("메모 불러오기 실패", err);
+          }
+        }
+        body.style.display = "block";
+      } else {
+        body.style.display = "none";
+      }
+    }
+  });
+
+  // 수정 버튼
+  editBtn.addEventListener("click", async () => {
+    if (editBtn.textContent === "✏️") {
+      title.setAttribute("contenteditable", "true");
+      body.setAttribute("contenteditable", "true");
+      body.style.display = "block";
+      title.focus();
+      editBtn.textContent = "💾";
+    } else {
+      title.removeAttribute("contenteditable");
+      body.removeAttribute("contenteditable");
+      editBtn.textContent = "✏️";
+      body.style.display = "block";
+
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await fetch("/timer/memo/write", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            id: memoItem.dataset.id || null,
+            title: title.textContent,
+            content: body.textContent
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          memoItem.dataset.id = data.memo.id;
+          alert("메모 저장 완료!");
+        } else {
+          alert(data.detail || "메모 저장 실패");
+        }
+      } catch (err) {
+        console.error("메모 저장 실패", err);
+      }
+    }
+  });
+
+  // 삭제 버튼
+  deleteBtn.addEventListener("click", async () => {
+    if (!confirm("정말 삭제하시겠습니까?")) return;
+    const memoId = memoItem.dataset.id;
+    if (!memoId) {
+      memoItem.remove();
+      return;
+    }
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`/timer/memo/${memoId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        alert("메모 삭제 완료!");
+        memoItem.remove();
+      } else {
+        alert("메모 삭제 실패");
+      }
+    } catch (err) {
+      console.error("메모 삭제 실패", err);
+    }
+  });
+
+  // Tab → body로 이동
+  title.addEventListener("keydown", (e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      body.focus();
+    }
+  });
+
+  // placeholder 처리
+  title.addEventListener("focus", () => clearPlaceholder(title, "새 메모 제목"));
+  title.addEventListener("blur", () => restorePlaceholder(title, "새 메모 제목"));
+  body.addEventListener("focus", () => clearPlaceholder(body, "메모 내용을 입력하세요..."));
+  body.addEventListener("blur", () => restorePlaceholder(body, "메모 내용을 입력하세요..."));
+}
+
+    // placeholder 유틸 함수
+    function setPlaceholder(el, text) {
+      el.textContent = text;
+      el.classList.add("placeholder");
+    }
+
+    function clearPlaceholder(el, text) {
+      if (el.textContent === text) {
+        el.textContent = "";
+        el.classList.remove("placeholder");
+      }
+    }
+
+    function restorePlaceholder(el, text) {
+      if (el.textContent.trim() === "") {
+        el.textContent = text;
+        el.classList.add("placeholder");
+      }
+    }
+
+  const loginBtn = document.getElementById("login-btn");
+
+// 토큰 유효성 검증
+async function checkLoginStatus() {
+  const token = localStorage.getItem("access_token");
+  if (!token) return false;
+
+  try {
+    const res = await fetch("/timer/api/timer-data", {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    return res.ok; // 200이면 로그인 상태, 아니면 false
+  } catch (err) {
+    console.error("서버 연결 실패", err);
+    return false;
+  }
+}
+
+
+// 로그인/로그아웃 버튼 상태 업데이트
+async function updateLoginButton() {
+  const loggedIn = await checkLoginStatus();
+  if (loggedIn) {
+    // 로그인 상태 → 로그아웃 아이콘
+    loginBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M16 13v-2H7V7l-5 5 5 5v-4h9zm3-10H5c-1.1 
+                 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 
+                 1.1.9 2 2 2h14c1.1 0 2-.9 
+                 2-2V5c0-1.1-.9-2-2-2z"/>
+      </svg>
+    `;
+    loginBtn.title = "로그아웃";
+  } else {
+    // 로그아웃 상태 → 로그인 아이콘
+    loginBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M10 17l5-5-5-5v10zm9-12H9c-1.1 
+                 0-2 .9-2 2v3h2V7h10v10H9v-3H7v3c0 
+                 1.1.9 2 2 2h10c1.1 0 2-.9 
+                 2-2V7c0-1.1-.9-2-2-2z"/>
+      </svg>
+    `;
+    loginBtn.title = "로그인" ;
+  }
+}
+
+  // 버튼 클릭 이벤트
+  loginBtn.addEventListener("click", () => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      // 로그인 상태 → 로그아웃 확인
+      const confirmLogout = confirm("로그아웃 하시겠습니까?");
+      if (confirmLogout) {
+        localStorage.removeItem("access_token");
+        updateLoginButton();
+        alert("로그아웃 되었습니다.");
+      }
+    } else {
+      // 로그아웃 상태 → 로그인 페이지로 이동
+      window.location.href = "/users/login-page";
+    }
+  });
+
+  // 페이지 로드 시 상태 업데이트
+  updateLoginButton();
+
+async function sendSessionEnd(startedAt, endedAt, duration, exp) {
+  try {
+    const token = localStorage.getItem("access_token");
+    await fetch("/timer/api/session-end", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        started_at: startedAt.toISOString(),
+        ended_at: endedAt.toISOString(),
+        duration: duration,
+        exp: exp
+      })
+    });
+
+    // 세션 종료 후 StudyRecord 업데이트 호출
+    const targetDate = new Date().toISOString().split("T")[0]; // 오늘 날짜
+    const totalMinutes = duration; // 누적 시간 계산 로직에 맞게 수정
+    const completedSessions = 1;   // 이번 세션을 완료했으니 +1
+    const goalAchieved = false;    // 목표 달성 여부는 로직에 맞게 설정
+
+    await fetch("/sessions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        target_date: new Date().toISOString().split("T")[0], // "YYYY-MM-DD"
+        total_minutes: Number(totalMinutes),
+        completed_sessions: Number(completedSessions)
+      })
+    });
+
+  } catch (err) {
+    console.error("세션 종료 전송 실패", err);
+  }
+}
+
+// ==================== AI 팝업 ====================
+const aiBox = document.getElementById("ai-box");
+const aiBtn = document.getElementById("ai-btn");
+
+aiBtn.addEventListener("click", () => {
+  if (aiBox.style.display === "none" || aiBox.style.display === "") {
+    aiBox.style.display = "flex";
+  } else {
+    aiBox.style.display = "none";
+  }
+});
+
+// AI 팝업 드래그
+const aiHeader = document.getElementById("ai-header");
+let offsetX_ai, offsetY_ai, isDragging_ai = false;
+
+aiHeader.addEventListener("mousedown", (e) => {
+  isDragging_ai = true;
+  offsetX_ai = e.clientX - aiBox.offsetLeft;
+  offsetY_ai = e.clientY - aiBox.offsetTop;
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (isDragging_ai) {
+    aiBox.style.left = (e.clientX - offsetX_ai) + "px";
+    aiBox.style.top = (e.clientY - offsetY_ai) + "px";
+  }
+});
+
+document.addEventListener("mouseup", () => {
+  isDragging_ai = false;
+});
+
+// AI 추천 API 호출
+document.getElementById("ai-submit-btn").addEventListener("click", async () => {
+  const studyType = document.getElementById("ai-study-type").value;
+  const hours = parseInt(document.getElementById("ai-hours").value) || 0;
+  let mins = parseInt(document.getElementById("ai-mins").value) || 0;
+  mins = mins >= 30 ? 30 : 0;
+
+  const totalMinutes = hours * 60 + mins;
+  document.getElementById("ai-mins").value = mins;
+
+  if (totalMinutes < 30 || totalMinutes > 480) {
+    alert("총 공부 시간은 30분~8시간 사이로 입력해주세요.");
+    return;
+  }
+
+  const submitBtn = document.getElementById("ai-submit-btn");
+  const loading = document.getElementById("ai-loading");
+  const result = document.getElementById("ai-result");
+
+  submitBtn.disabled = true;
+  loading.style.display = "block";
+  result.style.display = "none";
+
+  try {
+    const token = localStorage.getItem("access_token");
+    const aiEndpoint = token
+      ? "/ai_service/personalized-plan"
+      : "/ai_service/study-plan-options";
+    const res = await fetch(aiEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        study_type: studyType,
+        total_study_minutes: totalMinutes
+      })
+    });
+
+    if (!res.ok) {
+      alert("추천 요청에 실패했습니다. 다시 시도해주세요.");
+      return;
+    }
+
+    const data = await res.json();
+
+    // AI 메시지
+    document.getElementById("ai-message").textContent = data.ai_message;
+
+    // 추천 플랜 카드 렌더링
+    const planList = document.getElementById("ai-plan-list");
+    planList.innerHTML = "";
+
+    const fitLabels = { exact: "딱 맞음", under: "여유 있음", over: "조금 길음" };
+
+    data.recommendations.forEach(rec => {
+      // schedule에서 긴 휴식이 몇 번째 공부 세션 뒤에 오는지 계산
+      let longBreakInfo = "";
+      if (rec.long_break_included && rec.schedule) {
+        const longBreakPositions = [];
+        let studyCount = 0;
+        rec.schedule.forEach(item => {
+          if (item.type === "study") studyCount++;
+          if (item.type === "long_break") longBreakPositions.push(studyCount);
+        });
+        if (longBreakPositions.length > 0) {
+          longBreakInfo = `긴 휴식 30분 (${longBreakPositions.join(", ")}세션 후)<br>`;
+        }
+      }
+
+      const card = document.createElement("div");
+      card.className = "ai-plan-card";
+      card.innerHTML = `
+        <div class="ai-plan-rank">${rec.rank}순위 · ${fitLabels[rec.fit_type] || rec.fit_type}</div>
+        <div class="ai-plan-title">${rec.pattern_label}</div>
+        <div class="ai-plan-detail">
+          집중 ${rec.study_minutes}분 · 휴식 ${rec.short_break_minutes}분 · ${rec.num_sessions}세션<br>
+          ${longBreakInfo}총 ${rec.total_minutes}분
+        </div>
+      `;
+      planList.appendChild(card);
+    });
+
+    result.style.display = "block";
+
+  } catch (err) {
+    console.error("AI 추천 실패", err);
+    alert("서버와 연결할 수 없습니다.");
+  } finally {
+    submitBtn.disabled = false;
+    loading.style.display = "none";
+  }
+});
+
+// ==================== BGM 박스 온오프 ====================
+const bgmBox = document.getElementById("bgm-box");
+const bgmBtn = document.getElementById("bgm-btn");
+
+bgmBtn.addEventListener("click", async () => {
+  const loggedIn = await ensureLogin();
+  if (!loggedIn) return;
+
+  if (bgmBox.style.display === "none" || bgmBox.style.display === "") {
+    bgmBox.style.display = "block";
+    loadTracks(); // 열릴 때 트랙 불러오기
+  } else {
+    bgmBox.style.display = "none";
+    stopAudio();
+  }
+});
+
+// ==================== 드래그 이동 ====================
+const bgmHeader = document.getElementById("bgm-header");
+let offsetX_bgm, offsetY_bgm, isDragging_bgm = false;
+
+bgmHeader.addEventListener("mousedown", (e) => {
+  isDragging_bgm = true;
+  offsetX_bgm = e.clientX - bgmBox.offsetLeft;
+  offsetY_bgm = e.clientY - bgmBox.offsetTop;
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (isDragging_bgm) {
+    bgmBox.style.left = (e.clientX - offsetX_bgm) + "px";
+    bgmBox.style.top = (e.clientY - offsetY_bgm) + "px";
+  }
+});
+
+document.addEventListener("mouseup", () => {
+  isDragging_bgm = false;
+});
+
+// ==================== 오디오 플레이어 ====================
+let audio = null;
+let trackList = [];
+let currentIndex = null;
+let isShuffle = false;
+let repeatMode = "all"; // "all", "one", "off"
+let currentTrackId = null; // 현재 재생 중인 곡 ID
+
+// 버튼 상태 업데이트
+function updateButtons(state) {
+  // 컨트롤 영역 버튼
+  if (state === "playing") {
+    document.getElementById("play-btn").style.display = "none";
+    document.getElementById("pause-btn").style.display = "inline-block";
+  } else {
+    document.getElementById("pause-btn").style.display = "none";
+    document.getElementById("play-btn").style.display = "inline-block";
+  }
+
+  // 곡 리스트 버튼
+  const list = document.getElementById("track-list").children;
+  for (let i = 0; i < list.length; i++) {
+    const btn = list[i].querySelector("button");
+    const trackId = parseInt(list[i].getAttribute("data-id"));
+    if (trackId === currentTrackId && state === "playing") {
+      btn.textContent = "⏸";
+    } else {
+      btn.textContent = "▶";
+    }
+  }
+}
+
+function getCheckedTracks() {
+  return trackList.filter(track => track.is_checked);
+}
+
+function playTrack(index) {
+  const checkedTracks = getCheckedTracks();
+  if (checkedTracks.length === 0) return;
+
+  if (audio) audio.pause();
+  currentIndex = index;
+  currentTrackId = checkedTracks[index].id; // 현재 곡 ID 기록
+  lastPlayedTrackId = currentTrackId;
+
+  audio = new Audio(checkedTracks[index].file_url);
+  audio.play();
+
+  updateButtons("playing");
+
+  audio.onloadedmetadata = () => {
+    document.getElementById("total-time").textContent = formatTime(audio.duration);
+  };
+  audio.ontimeupdate = () => {
+    const progress = (audio.currentTime / audio.duration) * 100;
+    document.getElementById("progress-bar").value = progress;
+    document.getElementById("current-time").textContent = formatTime(audio.currentTime);
+  };
+
+  audio.onended = () => {
+    if (repeatMode === "one") {
+      // 같은 곡 반복
+      playSpecificTrack(track);
+    } else if (repeatMode === "all") {
+      nextTrack();
+    } else {
+      // repeatMode === "off"
+      if (isManualPlay) {
+        // 한 번만 재생하고 끝나면 체크된 곡들로 돌아감
+        isManualPlay = false;
+        nextTrack(); // 체크된 곡들로 넘어가기
+      } else {
+        updateButtons("stopped");
+      }
+    }
+  };
+}
+
+
+function pauseTrack() {
+  if (audio) {
+    audio.pause();
+    updateButtons("paused");
+  }
+}
+
+function stopAudio() {
+  if (audio) {
+    audio.pause();
+    audio = null;
+    updateButtons("stopped");
+  }
+}
+
+let lastPlayedIndex = null; // 직전 곡 인덱스 저장
+
+function nextTrack() {
+  const checkedTracks = getCheckedTracks();
+  if (checkedTracks.length === 0) return;
+
+  if (isShuffle) {
+    if (shuffleQueue.length === 0) {
+      generateShuffleQueue(); // 새 셔플 큐 생성
+    }
+    const nextIndex = shuffleQueue.shift(); // 큐에서 하나 꺼내기
+    playTrack(nextIndex);
+  } else {
+    currentIndex = (currentIndex + 1) % checkedTracks.length;
+    playTrack(currentIndex);
+  }
+}
+
+
+function prevTrack() {
+  const checkedTracks = getCheckedTracks();
+  if (checkedTracks.length === 0) return;
+
+  currentIndex = (currentIndex - 1 + checkedTracks.length) % checkedTracks.length;
+  playTrack(currentIndex);
+}
+
+let shuffleQueue = []; // 셔플된 인덱스 배열
+let lastPlayedTrackId = null;
+
+function generateShuffleQueue() {
+  const checkedTracks = getCheckedTracks();
+  shuffleQueue = checkedTracks.map((_, idx) => idx);
+
+  // 직전 곡 제외한 배열 만들기
+  if (lastPlayedTrackId !== null) {
+    shuffleQueue = shuffleQueue.filter(idx => checkedTracks[idx].id !== lastPlayedTrackId);
+  }
+
+  // Fisher-Yates 셔플
+  for (let i = shuffleQueue.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffleQueue[i], shuffleQueue[j]] = [shuffleQueue[j], shuffleQueue[i]];
+  }
+
+  // 직전 곡을 랜덤 위치에 삽입
+  if (lastPlayedTrackId !== null) {
+    const lastIndex = checkedTracks.findIndex(t => t.id === lastPlayedTrackId);
+    const randomPos = Math.floor(Math.random() * (shuffleQueue.length + 1));
+    shuffleQueue.splice(randomPos, 0, lastIndex);
+  }
+}
+
+// ==================== 재생 바 ====================
+document.getElementById("progress-bar").addEventListener("input", (e) => {
+  if (audio) {
+    const seekTime = (e.target.value / 100) * audio.duration;
+    audio.currentTime = seekTime;
+  }
+});
+
+function formatTime(seconds) {
+  if (isNaN(seconds)) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+// ==================== 컨트롤 버튼 ====================
+document.getElementById("shuffle-btn").addEventListener("click", () => {
+  isShuffle = !isShuffle;
+  if (isShuffle) {
+    generateShuffleQueue();
+  } else {
+    shuffleQueue = [];
+  }
+  updateShuffleButton();
+});
+
+document.getElementById("prev-btn").addEventListener("click", prevTrack);
+
+document.getElementById("play-btn").addEventListener("click", () => {
+  if (!audio) {
+    playTrack(currentIndex ?? 0);
+  } else {
+    audio.play();
+    updateButtons("playing");
+  }
+});
+
+document.getElementById("pause-btn").addEventListener("click", () => {
+  pauseTrack();
+});
+
+document.getElementById("next-btn").addEventListener("click", nextTrack);
+
+document.getElementById("repeat-btn").addEventListener("click", () => {
+  if (repeatMode === "all") {
+    repeatMode = "one";   // 한 곡 반복
+  } else if (repeatMode === "one") {
+    repeatMode = "off";   // 반복 꺼짐
+  } else {
+    repeatMode = "all";   // 전체 반복
+  }
+  updateRepeatButton();
+});
+
+// ==================== 트랙 불러오기 ====================
+async function loadTracks() {
+  const token = localStorage.getItem("access_token");
+  const res = await fetch("/timer/tracks", {
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+  const data = await res.json();
+  trackList = data.tracks;
+
+  const list = document.getElementById("track-list");
+  list.innerHTML = "";
+
+  if (isMixMode) {
+    // ---- 믹스 모드 트랙 렌더링 ----
+    trackList.forEach(track => {
+      const div = document.createElement("div");
+      div.classList.add("track-item", "mix-row");
+      div.setAttribute("data-id", track.id);
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = track.is_checked;
+      checkbox.addEventListener("change", async () => {
+        track.is_checked = checkbox.checked;
+        if (checkbox.checked) {
+          startMixTrack(track);
+        } else {
+          stopMixTrack(track.id);
+        }
+        await fetch(`/timer/tracks/${track.id}/check`, {
+          method: "PUT",
+          headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ is_checked: checkbox.checked })
+        });
+      });
+
+      const titleEl = document.createElement("span");
+      titleEl.className = "track-title";
+      titleEl.textContent = track.title;
+
+      const volSlider = document.createElement("input");
+      volSlider.type = "range";
+      volSlider.className = "track-vol";
+      volSlider.min = 0; volSlider.max = 100; volSlider.value = 70;
+      volSlider.addEventListener("input", e => setMixVolume(track.id, e.target.value));
+
+      div.appendChild(checkbox);
+      div.appendChild(titleEl);
+      div.appendChild(volSlider);
+      list.appendChild(div);
+
+      if (track.is_checked) startMixTrack(track);
+    });
+    return; // 믹스 모드는 드래그 불필요
+  }
+
+  // ---- 플레이어 모드 트랙 렌더링 ----
+  trackList.forEach((track, idx) => {
+    const div = document.createElement("div");
+    div.classList.add("track-item");
+    div.setAttribute("data-id", track.id);
+
+    const handle = document.createElement("span");
+    handle.classList.add("drag-handle");
+    handle.textContent = "::";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = track.is_checked;
+    checkbox.addEventListener("change", async () => {
+      track.is_checked = checkbox.checked;
+      await fetch(`/timer/tracks/${track.id}/check`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ is_checked: checkbox.checked })
+      });
+    });
+
+    const title = document.createElement("span");
+    title.textContent = track.title;
+
+    const star = document.createElement("span");
+    star.classList.add("favorite");
+    star.textContent = track.is_favorite ? "★" : "☆";
+    star.style.color = track.is_favorite ? "gold" : "black";
+    star.addEventListener("click", async () => {
+      const newState = !track.is_favorite;
+      track.is_favorite = newState;
+      star.textContent = newState ? "★" : "☆";
+      star.style.color = newState ? "gold" : "black";
+      await fetch(`/timer/tracks/${track.id}/favorite`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ is_favorite: newState })
+      });
+    });
+
+    const playBtn = document.createElement("button");
+    playBtn.textContent = "▶";
+    playBtn.addEventListener("click", () => {
+      if (currentIndex === idx && audio && !audio.paused) {
+        pauseTrack();
+      } else {
+        isManualPlay = true;
+        playSpecificTrack(track);
+      }
+    });
+
+function playSpecificTrack(track) {
+  if (audio) audio.pause();
+  currentTrackId = track.id;   // 현재 곡 ID 저장
+  lastPlayedTrackId = currentTrackId;
+
+  audio = new Audio(track.file_url);
+  audio.play();
+  updateButtons("playing");
+
+  audio.onloadedmetadata = () => {
+    document.getElementById("total-time").textContent = formatTime(audio.duration);
+  };
+  audio.ontimeupdate = () => {
+    const progress = (audio.currentTime / audio.duration) * 100;
+    document.getElementById("progress-bar").value = progress;
+    document.getElementById("current-time").textContent = formatTime(audio.currentTime);
+  };
+
+  audio.onended = () => {
+    if (repeatMode === "one") {
+      // 같은 곡 반복
+      playSpecificTrack(track);
+    } else if (repeatMode === "all") {
+      nextTrack();
+    } else {
+      // repeatMode === "off"
+      if (isManualPlay) {
+        // 한 번만 재생하고 끝나면 체크된 곡들로 돌아감
+        isManualPlay = false;
+        nextTrack(); // 체크된 곡들로 넘어가기
+      } else {
+        updateButtons("stopped");
+      }
+    }
+  };
+}
+
+    div.appendChild(handle);
+    div.appendChild(checkbox);
+    div.appendChild(title);
+    div.appendChild(star);
+    div.appendChild(playBtn);
+
+    list.appendChild(div);
+  }); // 플레이어 모드 트랙 루프 종료
+
+  // 드래그 앤 드롭으로 순서 변경
+  makeListSortable(list);
+}
+
+function makeListSortable(list) {
+  let draggingEl = null;
+  let placeholder = document.createElement("div");
+  placeholder.className = "track-item placeholder";
+  placeholder.style.border = "2px dashed #aaa";
+  placeholder.style.height = "40px";
+
+  list.querySelectorAll(".track-item").forEach(item => {
+    const handle = item.querySelector(".drag-handle");
+
+    handle.addEventListener("mousedown", e => {
+      draggingEl = item;
+      item.classList.add("dragging");
+      list.insertBefore(placeholder, item.nextSibling);
+
+      // 절대 위치로 따라다니게
+      const rect = item.getBoundingClientRect();
+      item.style.width = rect.width + "px";
+      item.style.position = "absolute";
+      item.style.left = rect.left + "px";
+      item.style.top = rect.top + "px";
+      item.style.zIndex = 1000;
+      item.style.pointerEvents = "none";
+
+      e.preventDefault();
+    });
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (draggingEl) {
+      // 드래그 중인 요소 따라다니기
+      draggingEl.style.top = e.clientY - draggingEl.offsetHeight / 2 + "px";
+
+      // placeholder 위치 계산
+      const items = Array.from(list.children).filter(el => el !== draggingEl && el !== placeholder);
+      let target = null;
+      for (let el of items) {
+        const box = el.getBoundingClientRect();
+        if (e.clientY < box.top + box.height / 2) {
+          target = el;
+          break;
+        }
+      }
+      if (target) {
+        list.insertBefore(placeholder, target);
+      } else {
+        list.appendChild(placeholder);
+      }
+    }
+  });
+
+  document.addEventListener("mouseup", async () => {
+    if (draggingEl) {
+      // draggingEl을 placeholder 위치로 되돌리기
+      list.insertBefore(draggingEl, placeholder);
+      draggingEl.classList.remove("dragging");
+      draggingEl.style.position = "";
+      draggingEl.style.top = "";
+      draggingEl.style.left = "";
+      draggingEl.style.width = "";
+      draggingEl.style.zIndex = "";
+      draggingEl.style.pointerEvents = "";
+      placeholder.remove();
+      draggingEl = null;
+
+      // 순서 저장
+      const newOrder = Array.from(list.children).map((el, idx) => ({
+        track_id: parseInt(el.getAttribute("data-id")),
+        order_index: idx + 1
+      }));
+
+      await fetch("/timer/tracks/order", {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("access_token")}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(newOrder)
+      });
+    }
+  });
+}
+
+// ==================== 셔플 버튼 ====================
+function updateShuffleButton() {
+  const btn = document.getElementById("shuffle-btn");
+  if (isShuffle) {
+    btn.classList.remove("off");
+  } else {
+    btn.classList.add("off");
+  }
+}
+
+// ==================== 반복 버튼 ====================
+function updateRepeatButton() {
+  const btn = document.getElementById("repeat-btn");
+  btn.classList.remove("off");
+  if (repeatMode === "all") {
+    btn.textContent = "🔁";
+  } else if (repeatMode === "one") {
+    btn.textContent = "🔂";
+  } else {
+    btn.textContent = "🔁";
+    btn.classList.add("off"); // 사선 표시
+  }
+}
+
+// 페이지 로드 시 셔플 버튼 상태 초기화
+updateShuffleButton();
+
+// ==================== 믹스 모드 ====================
+let isMixMode = false;
+const mixAudios = {}; // track_id -> Audio
+
+function setMixVolume(trackId, vol) {
+  if (mixAudios[trackId]) mixAudios[trackId].volume = vol / 100;
+}
+
+function startMixTrack(track) {
+  if (!mixAudios[track.id]) {
+    const a = new Audio(track.file_url);
+    a.loop = true;
+    mixAudios[track.id] = a;
+  }
+  mixAudios[track.id].volume = (document.getElementById('master-volume')?.value || 70) / 100;
+  mixAudios[track.id].play().catch(() => {});
+}
+
+function stopMixTrack(trackId) {
+  if (mixAudios[trackId]) {
+    mixAudios[trackId].pause();
+    delete mixAudios[trackId];
+  }
+}
+
+function stopAllMix() {
+  Object.keys(mixAudios).forEach(id => {
+    mixAudios[id].pause();
+    delete mixAudios[id];
+  });
+}
+
+function applyMasterVolume(val) {
+  document.getElementById('master-vol-label').textContent = val + '%';
+  Object.values(mixAudios).forEach(a => { a.volume = val / 100; });
+}
+
+document.getElementById('master-volume').addEventListener('input', e => {
+  applyMasterVolume(e.target.value);
+});
+
+document.getElementById('mode-player-btn').addEventListener('click', () => {
+  if (isMixMode) {
+    isMixMode = false;
+    stopAllMix();
+    document.getElementById('player-ui').style.display = '';
+    document.getElementById('mix-ui').style.display = 'none';
+    document.getElementById('mode-player-btn').classList.add('active');
+    document.getElementById('mode-mix-btn').classList.remove('active');
+    loadTracks();
+  }
+});
+
+document.getElementById('mode-mix-btn').addEventListener('click', () => {
+  if (!isMixMode) {
+    isMixMode = true;
+    stopAudio();
+    document.getElementById('player-ui').style.display = 'none';
+    document.getElementById('mix-ui').style.display = '';
+    document.getElementById('mode-mix-btn').classList.add('active');
+    document.getElementById('mode-player-btn').classList.remove('active');
+    loadTracks();
+  }
+});
+
+
+
+// ==================== 벚꽃 애니메이션 ====================
+const petalColors = [
+  { bg: 'radial-gradient(ellipse at 30% 30%, #ffffff, #ffb7c5)' },
+  { bg: 'radial-gradient(ellipse at 30% 30%, #fff0f5, #ff9eb5)' },
+  { bg: 'radial-gradient(ellipse at 30% 30%, #ffe4ec, #ffccd8)' },
+  { bg: 'radial-gradient(ellipse at 30% 30%, #ffffff, #ffd6e0)' },
+];
+
+function createPetal() {
+  const container = document.getElementById('cherry-blossom-container');
+  const petal = document.createElement('div');
+  petal.classList.add('petal');
+
+  const size = Math.random() * 10 + 8;
+  const color = petalColors[Math.floor(Math.random() * petalColors.length)];
+
+  petal.style.left = Math.random() * 100 + 'vw';
+  petal.style.width = size + 'px';
+  petal.style.height = size + 'px';
+  petal.style.animationDuration = (Math.random() * 5 + 5) + 's';
+  petal.style.animationDelay = (Math.random() * 2) + 's';
+  petal.style.opacity = Math.random() * 0.4 + 0.5;
+  petal.style.background = color.bg;
+  const shapes = ['50% 0 50% 0', '0 50% 0 50%', '50% 50% 0 0', '0 0 50% 50%'];
+  petal.style.borderRadius = shapes[Math.floor(Math.random() * shapes.length)];
+
+  container.appendChild(petal);
+  setTimeout(() => petal.remove(), 10000);
+}
+
+// 0.35초마다 꽃잎 생성
+setInterval(createPetal, 350);
+
+// 처음에 미리 여러 개 흩뿌리기
+for (let i = 0; i < 20; i++) {
+  setTimeout(createPetal, i * 80);
+}
+
+  </script>
+</body>
+</html>

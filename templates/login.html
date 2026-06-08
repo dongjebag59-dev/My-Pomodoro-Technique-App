@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 - Toti</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+    /* ===== 토마토 테마 CSS 변수 ===== */
+    :root {
+      --tomato:       #e53935;
+      --tomato-light: #ef9a9a;
+      --tomato-dark:  #b71c1c;
+      --tomato-pale:  #fff8f7;
+      --tomato-muted: #ffcdd2;
+      --green:        #4caf50;
+      --bg:           #fff3f0;
+      --card:         #ffffff;
+      --text:         #2d2d2d;
+      --text-sub:     #888888;
+      --border:       #f5c6c0;
+      --shadow:       rgba(229, 57, 53, 0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Nunito', sans-serif;
+      color: var(--text);
+      background-color: var(--bg);
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='187' height='187' viewBox='0 0 187 187'%3E%3Cg transform='translate(94,105) rotate(30)'%3E%3Ccircle cx='0' cy='0' r='20' fill='%23e5393520'/%3E%3Cellipse cx='0' cy='-22' rx='3' ry='7' fill='%234caf5025'/%3E%3Cellipse cx='-9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(-30 -9 -19)'/%3E%3Cellipse cx='9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(30 9 -19)'/%3E%3C/g%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='187' height='187' viewBox='0 0 187 187'%3E%3Cg transform='translate(94,105) rotate(30)'%3E%3Ccircle cx='0' cy='0' r='20' fill='%23e5393520'/%3E%3Cellipse cx='0' cy='-22' rx='3' ry='7' fill='%234caf5025'/%3E%3Cellipse cx='-9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(-30 -9 -19)'/%3E%3Cellipse cx='9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(30 9 -19)'/%3E%3C/g%3E%3C/svg%3E");
+      background-position: 0 94px, 94px 0;
+      background-repeat: repeat;
+      background-size: 187px 187px;
+      padding: 40px 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 40px 36px;
+      box-shadow: 0 8px 32px var(--shadow);
+      position: relative;
+      z-index: 1;
+      width: 480px;
+      max-width: 95vw;
+    }
+
+    h1 {
+      font-size: 1.6em;
+      font-weight: 800;
+      color: var(--tomato-dark);
+      margin-bottom: 28px;
+      text-align: center;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      font-size: 0.9em;
+      color: var(--text-sub);
+      font-weight: 600;
+    }
+
+    input, select {
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 1em;
+      background: var(--tomato-pale);
+      color: var(--text);
+      font-family: 'Nunito', sans-serif;
+      transition: border 0.2s, background 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--tomato);
+      background: #fff;
+    }
+
+    .error-msg {
+      font-size: 0.8em;
+      color: var(--tomato);
+      min-height: 16px;
+    }
+
+    .success-msg {
+      font-size: 0.85em;
+      color: var(--green);
+      text-align: center;
+      min-height: 18px;
+      margin-top: 8px;
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--tomato), var(--tomato-dark));
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1em;
+      font-weight: 700;
+      font-family: 'Nunito', sans-serif;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+      transform: scale(1.01);
+    }
+
+    .signup-link {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 0.9em;
+      color: var(--text-sub);
+    }
+
+    .signup-link a {
+      color: var(--tomato);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .signup-link a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>환영합니다, 회원님!</h1>
+
+    <div class="form-group">
+      <label for="email">이메일</label>
+      <input type="email" id="email" placeholder="example@email.com">
+    </div>
+
+    <div class="form-group">
+      <label for="password">비밀번호</label>
+      <input type="password" id="password" placeholder="비밀번호를 입력하세요">
+      <span class="error-msg" id="login-error"></span>
+    </div>
+
+    <button class="btn" id="login-btn">로그인</button>
+
+    <div class="signup-link">
+      계정이 없으신가요? <a href="/users/signup-page">회원가입</a>
+    </div>
+  </div>
+
+  <script>
+    const loginBtn = document.getElementById("login-btn");
+
+    loginBtn.addEventListener("click", async () => {
+      document.getElementById("login-error").textContent = "";
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!email || !password) {
+        document.getElementById("login-error").textContent = "이메일과 비밀번호를 입력해주세요.";
+        return;
+      }
+
+      try {
+        const res = await fetch("/users/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          localStorage.setItem("access_token", data.access_token);
+          window.location.href = "/timer";
+        } else {
+          document.getElementById("login-error").textContent = "이메일 또는 비밀번호가 올바르지 않습니다.";
+        }
+      } catch (err) {
+        console.error("서버 연결 실패", err);
+        alert("서버와 연결할 수 없습니다.");
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loginBtn.click();
+    });
+  </script>
+</body>
+</html>

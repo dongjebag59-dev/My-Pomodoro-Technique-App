@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>설정 수정 - Toti</title>
+  <style>
+    /* ===== 토마토 테마 CSS 변수 ===== */
+    :root {
+      --tomato:       #e53935;
+      --tomato-light: #ef9a9a;
+      --tomato-dark:  #b71c1c;
+      --tomato-pale:  #fff8f7;
+      --tomato-muted: #ffcdd2;
+      --green:        #4caf50;
+      --bg:           #fff3f0;
+      --card:         #ffffff;
+      --text:         #2d2d2d;
+      --text-sub:     #888888;
+      --border:       #f5c6c0;
+      --shadow:       rgba(229, 57, 53, 0.12);
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Nunito', sans-serif;
+      color: var(--text);
+      background-color: var(--bg);
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='187' height='187' viewBox='0 0 187 187'%3E%3Cg transform='translate(94,105) rotate(30)'%3E%3Ccircle cx='0' cy='0' r='20' fill='%23e5393520'/%3E%3Cellipse cx='0' cy='-22' rx='3' ry='7' fill='%234caf5025'/%3E%3Cellipse cx='-9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(-30 -9 -19)'/%3E%3Cellipse cx='9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(30 9 -19)'/%3E%3C/g%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='187' height='187' viewBox='0 0 187 187'%3E%3Cg transform='translate(94,105) rotate(30)'%3E%3Ccircle cx='0' cy='0' r='20' fill='%23e5393520'/%3E%3Cellipse cx='0' cy='-22' rx='3' ry='7' fill='%234caf5025'/%3E%3Cellipse cx='-9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(-30 -9 -19)'/%3E%3Cellipse cx='9' cy='-19' rx='7' ry='3' fill='%234caf5025' transform='rotate(30 9 -19)'/%3E%3C/g%3E%3C/svg%3E");
+      background-position: 0 94px, 94px 0;
+      background-repeat: repeat;
+      background-size: 187px 187px;
+      padding: 40px 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 40px 36px;
+      box-shadow: 0 8px 32px var(--shadow);
+      position: relative;
+      z-index: 1;
+      width: 480px;
+      max-width: 95vw;
+    }
+
+    h1 {
+      font-size: 1.6em;
+      font-weight: 800;
+      color: var(--tomato-dark);
+      margin-bottom: 28px;
+      text-align: center;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      font-size: 0.9em;
+      color: var(--text-sub);
+      font-weight: 600;
+    }
+
+    input, select {
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 1em;
+      background: var(--tomato-pale);
+      color: var(--text);
+      font-family: 'Nunito', sans-serif;
+      transition: border 0.2s, background 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--tomato);
+      background: #fff;
+    }
+
+    .error-msg {
+      font-size: 0.8em;
+      color: var(--tomato);
+      min-height: 16px;
+    }
+
+    .success-msg {
+      font-size: 0.85em;
+      color: var(--green);
+      text-align: center;
+      min-height: 18px;
+      margin-top: 8px;
+    }
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95em;
+      font-weight: 700;
+      font-family: 'Nunito', sans-serif;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--tomato), var(--tomato-dark));
+      color: white;
+    }
+
+    .btn-primary:hover { opacity: 0.9; transform: scale(1.01); }
+
+    .btn-secondary {
+      background: var(--tomato-pale);
+      color: var(--tomato-dark);
+      border: 1.5px solid var(--border);
+    }
+
+    .btn-secondary:hover { background: var(--tomato-muted); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>설정 수정</h1>
+
+    <div class="form-group">
+      <label for="goal-minutes">목표 시간 (분) <span style="color:#aaa; font-size:0.85em;">1~1440</span></label>
+      <input type="number" id="goal-minutes" min="1" max="1440" placeholder="예: 120">
+      <span class="error-msg" id="goal-error"></span>
+    </div>
+
+    <div class="form-group">
+      <label for="focus-time">기본 집중 시간 (분) <span style="color:#aaa; font-size:0.85em;">1~1440</span></label>
+      <input type="number" id="focus-time" min="1" max="1440" placeholder="예: 25">
+      <span class="error-msg" id="focus-error"></span>
+    </div>
+
+    <div class="form-group">
+      <label for="break-time">기본 휴식 시간 (분) <span style="color:#aaa; font-size:0.85em;">1~1440</span></label>
+      <input type="number" id="break-time" min="1" max="1440" placeholder="예: 5">
+      <span class="error-msg" id="break-error"></span>
+    </div>
+
+
+    <div class="btn-group">
+      <button class="btn btn-primary" id="save-btn">저장</button>
+      <button class="btn btn-secondary" id="back-btn">돌아가기</button>
+    </div>
+    <div class="success-msg" id="success-msg"></div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+      alert("로그인이 필요합니다.");
+      window.location.href = "/users/login-page";
+    }
+
+    async function loadCurrentSettings() {
+      try {
+        const res = await fetch("/users/mypage", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (res.status === 401) {
+          alert("로그인이 필요합니다.");
+          window.location.href = "/users/login-page";
+          return;
+        }
+
+        const data = await res.json();
+        document.getElementById("goal-minutes").value = data.goal_minutes;
+        document.getElementById("focus-time").value = data.default_focus_time;
+        document.getElementById("break-time").value = data.default_break_time;
+      } catch (err) {
+        console.error("설정 불러오기 실패", err);
+      }
+    }
+
+    loadCurrentSettings();
+
+    document.getElementById("save-btn").addEventListener("click", async () => {
+      document.getElementById("goal-error").textContent = "";
+      document.getElementById("focus-error").textContent = "";
+      document.getElementById("break-error").textContent = "";
+      document.getElementById("success-msg").textContent = "";
+
+      const goal_minutes = parseInt(document.getElementById("goal-minutes").value);
+      const default_focus_time = parseInt(document.getElementById("focus-time").value);
+      const default_break_time = parseInt(document.getElementById("break-time").value);
+
+      let valid = true;
+
+      if (!goal_minutes || goal_minutes <= 0 || goal_minutes > 1440) {
+        document.getElementById("goal-error").textContent = "목표 시간은 1분 이상 1440분 이하여야 합니다.";
+        valid = false;
+      }
+      if (!default_focus_time || default_focus_time <= 0 || default_focus_time > 1440) {
+        document.getElementById("focus-error").textContent = "집중 시간은 1분 이상 1440분 이하여야 합니다.";
+        valid = false;
+      }
+      if (!default_break_time || default_break_time <= 0 || default_break_time > 1440) {
+        document.getElementById("break-error").textContent = "휴식 시간은 1분 이상 1440분 이하여야 합니다.";
+        valid = false;
+      }
+
+      if (!valid) return;
+
+      try {
+        const res = await fetch("/users/settings", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ goal_minutes, default_focus_time, default_break_time })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          document.getElementById("success-msg").textContent = "설정이 저장되었습니다!";
+          setTimeout(() => {
+            window.location.href = "/users/mypage-page";
+          }, 1200);
+        } else {
+          document.getElementById("success-msg").style.color = "#e57373";
+          document.getElementById("success-msg").textContent = data.detail || "저장에 실패했습니다.";
+        }
+      } catch (err) {
+        console.error("설정 저장 실패", err);
+        alert("서버와 연결할 수 없습니다.");
+      }
+    });
+
+    document.getElementById("back-btn").addEventListener("click", () => {
+      window.location.href = "/users/mypage-page";
+    });
+  </script>
+</body>
+</html>

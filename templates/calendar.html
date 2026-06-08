@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="Tomato Study Manager">
+    <meta name="keywords" content="tomato, calendar, study">
+    <title>🍅 토마토 학습 매니저</title>
+    <style>
+        /* 기본 레이아웃 */
+        body { 
+            font-family: 'Arial', sans-serif; 
+            background-color: #f4f4f9; 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-start; 
+            padding: 50px; 
+            gap: 30px;
+            margin-top: 50px;
+        }
+
+        /* 카드 공통 스타일 */
+        .card { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+            min-height: 550px;
+        }
+
+        .left-section { width: 350px; text-align: center; }
+        .right-section { width: 450px; display: flex; flex-direction: column; gap: 20px; }
+
+        /* 입력 요소 스타일 */
+        #current-date { width: 85%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 1.1rem; margin-bottom: 15px; }
+        .input-group { display: flex; gap: 5px; margin-bottom: 15px; }
+        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        
+        /* Todo 리스트 디자인 (Inline 스타일 제거) */
+        .todo-list { text-align: left; margin-top: 20px; }
+        #todo-items { padding: 0; margin: 0; }
+        .todo-item { 
+            background: #f9f9f9; 
+            margin: 8px 0; 
+            padding: 12px; 
+            border-radius: 10px; 
+            border-left: 5px solid #ff6b6b; 
+            list-style: none; 
+        }
+
+        /* 메모 섹션 디자인 */
+        .memo-box { border: 2px solid #333; border-radius: 15px; padding: 20px; flex-grow: 1; position: relative; }
+        .memo-title-input { width: 100%; border:none; border-bottom: 2px solid #333; font-size: 1.2rem; font-weight: bold; padding: 5px 0; outline: none; }
+        .ai-message { background: #fff; border: 1px solid #ddd; border-radius: 20px; padding: 15px; margin: 15px 0; font-size: 0.9rem; line-height: 1.5; color: #555; }
+        textarea { width: 100%; height: 180px; border: 1px solid #eee; border-radius: 10px; padding: 10px; resize: none; box-sizing: border-box; }
+
+        /* 버튼 스타일 */
+        button { background: #ff6b6b; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #ee5253; }
+        .save-btn { width: 100%; margin-top: 15px; background: #333; }
+        .save-btn:hover { background: #000; }
+
+        /* 아이콘 */
+        .tomato-icon { font-size: 60px; margin: 10px; }
+        .big-tomato { font-size: 80px; text-align: right; margin-top: 10px; }
+
+        /* 7열 달력 그리드 스타일 */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr); /* 7열 확실히 고정 */
+            gap: 2px;
+            border-top: 1px solid #ddd;
+            border-left: 1px solid #ddd;
+            background-color: #ddd; /* 선처럼 보이게 배경색 살짝 추가 */
+        }
+
+        /* 날짜 칸 스타일 */
+        .day-cell {
+            aspect-ratio: 1 / 1; /* 칸을 정사각형으로! */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 5px;
+            cursor: pointer;
+            background: white;
+            font-size: 12px;
+        }
+
+        .day-cell:hover { background-color: #f9f9f9; }
+
+        /* 토마토 아이콘 스타일 */
+        .tomato-icon {
+           width: 30px; /* 아이콘 크기 고정 */
+           display: block;
+           margin: 5px auto 0; /* 날짜 숫자 아래에 중앙 정렬 */
+           cursor: pointer;
+        }
+
+        /* 달력 전체 컨테이너 */
+        .calendar-container {
+            width: 350px; /* 달력 너비 고정 */
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            margin: 20px auto; /* 가운데 정렬 */
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr); /* 7열 확실히 고정 */
+            gap: 2px;
+        }
+
+        .day-cell {
+            aspect-ratio: 1 / 1; /* 칸을 정사각형으로! */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            font-size: 12px;
+        }
+
+        /* 화면 전체를 가로로 나누는 설정 */
+        .main-container {
+            display: flex;
+            flex-direction: row; /* 가로 배치 */
+            gap: 30px;
+            padding: 20px;
+            align-items: flex-start;
+        }
+
+       .calendar-section {
+           flex: 2; /* 달력을 2배 더 넓게 */
+           background: #fff;
+           padding: 20px;
+           border-radius: 10px;
+        }
+
+        .detail-section {
+            flex: 1; /* 정보창은 1배 비율 */
+            min-width: 300px;
+        }
+
+        /* 7열 요일 라벨 스타일 */
+        .day-labels {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        /* 기획안처럼 달력 칸을 크게 */
+        .day-cell {
+            min-height: 100px; /* 높이를 키워서 기획안 느낌 내기 */
+            background: white;
+            border: 1px solid #eee;
+            padding: 5px;
+        }
+
+        /* 날짜 클릭 시 나타날 Todo 팝업 스타일 */
+        .todo-popup {
+            position: absolute;
+            top: 40px;      /* 날짜 숫자 아래에 위치 */
+            left: 10px;
+            z-index: 100;   /* 다른 요소보다 위에 보이게 */
+            width: 160px;
+            background: white;
+            border: 2px solid #333; /* 기획안처럼 진한 테두리 */
+            padding: 10px;
+            box-shadow: 4px 4px 0px #000; /* 딱딱한 그림자 효과 */
+            border-radius: 4px;
+        }
+
+        .todo-popup ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 0.85em;
+            text-align: left;
+        }
+
+        .todo-popup li {
+            margin-bottom: 5px;
+            border-bottom: 1px dotted #ccc;
+        }
+
+        /* 날짜 클릭 시 나타날 팝업창 스타일 */
+        .todo-popup {
+            position: absolute;
+            top: 30px;
+            left: 5px;
+            z-index: 100;
+            width: 180px;
+            background: white;
+            border: 2px solid #333;
+            padding: 10px;
+            box-shadow: 4px 4px 0px #000; /* 기획안 특유의 강한 그림자 */
+            border-radius: 8px;
+            text-align: left;
+        }
+
+        .popup-input-group {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .popup-input-group input {
+            width: 70%;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main-container">
+        <div class="calendar-section">
+            <div class="calendar-header" style="display: flex; justify-content: space-between; align-items: center;">
+               <h1 id="monthDisplay">3 MAR</h1>
+               <button onclick="location.href='/timer'" style="background: #ff6b6b; color: white; padding: 10px 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold;">
+                   ⏱ 타이머로 돌아가기
+                </button>
+            </div>
+
+            <div class="day-labels">
+                <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+            </div>
+            <div id="calendarGrid" class="calendar-grid">
+                </div>
+        </div>
+
+        <div class="detail-section">
+            <div class="memo-box card">
+                <h3>메모 in here</h3>
+                
+                <div class="ai-message" style="background: #fdf2f2; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #ffcfcf;">
+                    <strong style="color: #e74c3c;">🤖 AI 가이드:</strong><br>
+                    <span style="font-size: 0.9em; line-height: 1.4;">
+                        "동제님, 오늘의 학습 목표를 달성하면 <br>골든 토티를 받을 수 있어요! 화이팅!"
+                    </span>
+                </div>
+
+                <input type="text" id="memo-title" placeholder="학습 주제(title)">
+                <textarea id="memo-content" placeholder="공부한 내용(content)"></textarea>
+                <button class="save-btn" onclick="saveMemo()">📝 메모 저장하기</button>
+                <div class="big-tomato">🍅</div>
+            </div>
+        </div>
+    </div> </body>
+
+    <script>
+    // 1. 날짜 초기화 (오늘 날짜)
+    function setDefaultDate() {
+        const today = new Date().toISOString().split('T')[0];
+        const dateInput = document.getElementById('current-date');
+        if (dateInput) dateInput.value = today;
+    }
+
+    // 2. 달력 그리기 (날짜 클릭 시 팝업 포함)
+    async function loadMonthlyCalendar(year, month) {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/monthly/${year}/${month}`);
+            const monthlyData = await response.json();
+            const grid = document.getElementById('calendarGrid');
+            if (!grid) return;
+            grid.innerHTML = ''; 
+
+            const lastDay = new Date(year, month, 0).getDate();
+
+            for (let i = 1; i <= lastDay; i++) {
+                const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+                const hasTodo = monthlyData.some(t => t.date === dateStr);
+                const tomatoHtml = hasTodo ? `<span style="font-size: 25px;">🍅</span>` : '';
+
+                grid.innerHTML += `
+                    <div class="day-cell" onclick="openTodoPopup('${dateStr}', event)" style="position: relative; cursor: pointer;">
+                        <span>${i}</span>
+                        ${tomatoHtml}
+                        <div id="popup-${dateStr}" class="todo-popup" style="display: none; position: absolute; top: 40px; left: 0; z-index: 100; background: white; border: 2px solid #333; padding: 10px; width: 180px; box-shadow: 4px 4px 0px #000;" onclick="event.stopPropagation()">
+                            <strong style="font-size: 13px;">일자 선택시 todo</strong>
+                            <ul id="items-${dateStr}" style="font-size: 12px; margin: 8px 0; padding-left: 20px; list-style: disc;"></ul>
+                            <div style="display:flex; gap:5px;">
+                                <input type="text" id="input-${dateStr}" placeholder="할 일 추가" style="width:70%; font-size:11px; padding: 2px;">
+                                <button onclick="addTodoFromPopup('${dateStr}')" style="font-size: 11px; cursor: pointer;">추가</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+       } catch (e) {
+           console.error("달력 로드 실패:", e);
+       }
+    }
+
+    // 3. 팝업 열기 및 해당 날짜 Todo 로드
+    async function openTodoPopup(dateStr, event) {
+        if (event) event.stopPropagation(); // 칸 클릭 시 이벤트 전파 방지
+    
+        // 이미 열려있는 모든 팝업 닫기
+        document.querySelectorAll('.todo-popup').forEach(p => p.style.display = 'none');
+    
+       const popup = document.getElementById(`popup-${dateStr}`);
+       const list = document.getElementById(`items-${dateStr}`);
+    
+       // 팝업 보이기
+       popup.style.display = 'block';
+
+       // 해당 날짜 Todo 목록 가져오기
+       try {
+           const res = await fetch(`http://127.0.0.1:8000/daily/${dateStr}`);
+           const data = await res.json();
+           list.innerHTML = data.todos.map(t => `<li>${t.content}</li>`).join('') || '<li>일정 없음</li>';
+       } catch (e) {
+           list.innerHTML = '<li>로드 실패</li>';
+       }
+    }
+
+    // 4. 팝업에서 Todo 추가하기
+    async function addTodoFromPopup(dateStr) {
+        const input = document.getElementById(`input-${dateStr}`);
+        const content = input.value;
+        if (!content) return;
+
+        try {
+            await fetch(`http://127.0.0.1:8000/todo?content=${encodeURIComponent(content)}&user_id=1&date=${dateStr}`, { method: 'POST' });
+            input.value = ''; // 입력창 비우기
+            openTodoPopup(dateStr); // 해당 날짜 팝업 리스트 새로고침
+            loadMonthlyCalendar(2026, 3); // 달력 토마토 아이콘 업데이트
+        } catch (e) {
+            alert("추가 실패!");
+        }
+    }
+
+    // 5. 페이지 로드 시 실행
+    window.onload = () => {
+        loadMonthlyCalendar(2026, 3);
+    
+        // 바탕화면 클릭하면 팝업 닫기
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.todo-popup').forEach(p => p.style.display = 'none');
+        });
+    };
+
+    async function saveMemo() {
+        const titleVal = document.getElementById('memo-title').value;
+        const contentVal = document.getElementById('memo-content').value;
+    
+        // 오늘 날짜 생성 (YYYY-MM-DD 형식) - 서버가 date를 필수로 요구함!
+        const today = new Date().toISOString().split('T')[0];
+
+        if (!titleVal || !contentVal) {
+            alert("학습 주제와 내용을 모두 입력해주세요! 🍅");
+            return;
+        }
+
+        try {
+            // ✅ 핵심 수정: 데이터를 주소창(Query Parameter)에 담아서 보냅니다.
+            const url = `http://127.0.0.1:8000/memo?title=${encodeURIComponent(titleVal)}&content=${encodeURIComponent(contentVal)}&date=${today}&user_id=1`;
+        
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'accept': 'application/json' }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                // 🤖 AI 가이드 문구 업데이트
+                document.querySelector('.ai-message span').innerText = data.ai_advice || "저장 성공!";
+                alert("드디어 저장 성공! 🍅");
+            
+                document.getElementById('memo-title').value = '';
+                document.getElementById('memo-content').value = '';
+            } else {
+                const errorDetail = await response.text();
+                console.error("서버 거절 이유:", errorDetail);
+                alert("저장 실패 (에러코드: " + response.status + ")");
+            }
+        } catch (error) {
+            console.error("연결 오류:", error);
+        }
+    }
+</script>
+</body>
+</html>

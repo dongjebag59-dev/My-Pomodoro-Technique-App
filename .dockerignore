@@ -1,0 +1,45 @@
+ Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Virtual environments
+venv/
+.venv/
+
+# Environment files
+.env
+.env.*
+
+# Git
+.git/
+.gitignore
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test / cache
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local database / logs
+*.sqlite3
+*.db
+*.log
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Docker compose override
+docker-compose.override.yml
+
+F/
