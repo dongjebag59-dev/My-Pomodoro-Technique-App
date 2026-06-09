@@ -41,8 +41,8 @@ async def _run_migrations(conn) -> None:
 @asynccontextmanager
 async def app_life_span(app: FastAPI):
     async with db.engine.begin() as conn:
-        await _run_migrations(conn)                        # ① 기존 테이블 컬럼 추가
-        await conn.run_sync(db.Base.metadata.create_all)  # ② 신규 테이블 생성
+        await conn.run_sync(db.Base.metadata.create_all)  # ① 없는 테이블 생성 (신규 DB)
+        await _run_migrations(conn)                        # ② 기존 테이블에 신규 컬럼 추가 (기존 DB)
     await bgm_import.seed_tracks()
     yield
 
