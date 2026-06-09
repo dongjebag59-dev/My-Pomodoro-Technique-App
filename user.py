@@ -9,6 +9,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
 # from typing import Optional
 from datetime import datetime, timedelta, timezone
+import math
 import os
 
 from db import get_db, User
@@ -65,6 +66,7 @@ class MypageResponse(BaseModel):
     created_at: str
     experience: int
     level: int
+    streak: int
 
 
 class SettingsResponse(BaseModel):
@@ -89,8 +91,7 @@ def create_access_token(data: dict) -> str:
 
 
 def calc_level(exp: int) -> int:
-    # 100분마다 레벨 1 상승, 최초 레벨 1
-    return exp // 100 + 1
+    return 1 + math.floor(math.sqrt(max(0, exp) / 100))
 
 
 # --- 의존성: 현재 유저 조회 ---
@@ -188,7 +189,8 @@ async def mypage(user: User = Depends(get_current_user)):
         default_break_time=user.default_break_time,
         created_at=user.created_at.isoformat(),
         experience=user.exp,
-        level=calc_level(user.exp)
+        level=calc_level(user.exp),
+        streak=user.streak or 0,
     )
 
 

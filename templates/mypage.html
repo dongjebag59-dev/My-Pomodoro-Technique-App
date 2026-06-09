@@ -116,8 +116,12 @@
     }
 
     .level-title { font-size: 0.85em; color: var(--tomato); margin-bottom: 4px; font-weight: 700; }
-    .level-value { font-size: 1.8em; font-weight: 800; color: var(--tomato-dark); margin-bottom: 10px; }
+    .level-value { font-size: 1.8em; font-weight: 800; color: var(--tomato-dark); margin-bottom: 4px; }
+    .level-name { font-size: 0.9em; color: var(--tomato); margin-bottom: 8px; font-weight: 600; }
+    .streak-badge { display: inline-block; background: #fff3e0; border: 1.5px solid #ffcc80; border-radius: 999px; padding: 3px 12px; font-size: 0.82em; color: #e65100; font-weight: 700; margin-bottom: 8px; }
     .exp-text { font-size: 0.85em; color: var(--text-sub); margin-bottom: 6px; }
+    .slump-banner { background: linear-gradient(135deg, #fff8e1, #fff3cd); border: 1.5px solid #ffd54f; border-radius: 14px; padding: 14px 18px; margin-bottom: 18px; font-size: 0.9em; color: #5d4037; line-height: 1.6; display: none; }
+    .slump-banner::before { content: "💬 "; }
 
     .progress-bar-wrap {
       background: var(--tomato-muted);
@@ -317,6 +321,8 @@
 <body>
   <div class="card">
     <h1>마이페이지</h1>
+
+    <div id="slump-banner" class="slump-banner"></div>
 
     <div id="user-info">
       <div class="loading">불러오는 중...</div>
@@ -548,14 +554,27 @@
         }
 
         const data = await res.json();
-        const expInLevel = data.experience % 100;
+
+        // 레벨 이름 정의
+        const levelNames = ["", "새싹 토마토 🌱", "초록 토마토 🍏", "빨간 토마토 🍅", "익은 토마토 🌟", "황금 토마토 ⭐", "전설 토마토 🏆"];
+        const levelName = levelNames[Math.min(data.level, levelNames.length - 1)] || `토마토 Lv.${data.level}`;
+
+        // sqrt 공식 기반 EXP 진행도 계산
+        const curLevel = data.level;
+        const expForCurrent = Math.pow(curLevel - 1, 2) * 100;
+        const expForNext = Math.pow(curLevel, 2) * 100;
+        const expInLevel = data.experience - expForCurrent;
+        const expRange = expForNext - expForCurrent;
+        const expPercent = Math.min(100, Math.round((expInLevel / expRange) * 100));
 
         document.getElementById("user-info").innerHTML = `
           <div class="level-box">
             <div class="level-value">Lv. ${data.level}</div>
-            <div class="exp-text">경험치 ${expInLevel} / 100</div>
+            <div class="level-name">${levelName}</div>
+            ${data.streak > 0 ? `<div class="streak-badge">🔥 ${data.streak}일 연속 공부 중</div>` : ''}
+            <div class="exp-text">경험치 ${expInLevel} / ${expRange} (다음 레벨까지)</div>
             <div class="progress-bar-wrap">
-              <div class="progress-bar" style="width: ${expInLevel}%"></div>
+              <div class="progress-bar" style="width: ${expPercent}%"></div>
             </div>
           </div>
 
@@ -706,6 +725,23 @@
     }
 
     loadMypage();
+
+    // 슬럼프 감지
+    async function checkSlump() {
+      try {
+        const res = await fetch("/ai_service/slump-check", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.slump && data.message) {
+          const banner = document.getElementById("slump-banner");
+          banner.textContent = data.message;
+          banner.style.display = "block";
+        }
+      } catch (_) {}
+    }
+    checkSlump();
 
     document.getElementById("logout-btn").addEventListener("click", () => {
       localStorage.removeItem("access_token");

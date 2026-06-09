@@ -776,6 +776,123 @@
   cursor: pointer;
 }
 
+/* ===== 레벨/스트릭 배지 ===== */
+.level-streak-bar {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #fff0ef, #fdecea);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: var(--tomato-dark);
+}
+.streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff3e0;
+  border: 1.5px solid #ffcc80;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: #e65100;
+}
+
+/* ===== 스터디룸 팝업 ===== */
+.room-box {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 280px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px var(--shadow);
+  z-index: 200;
+  font-family: 'Nunito', sans-serif;
+}
+.room-header {
+  background: linear-gradient(135deg, var(--tomato), var(--tomato-dark));
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 14px 14px 0 0;
+  font-weight: 700;
+  font-size: 0.9em;
+  cursor: grab;
+  user-select: none;
+}
+.room-body { padding: 14px; }
+.room-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.9em;
+  margin-bottom: 8px;
+  font-family: inherit;
+  background: var(--tomato-pale);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.room-btn {
+  width: 100%;
+  padding: 9px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.88em;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 6px;
+  transition: opacity 0.15s;
+}
+.room-btn:hover { opacity: 0.88; }
+.room-btn-primary { background: var(--tomato); color: #fff; }
+.room-btn-outline { background: #fff; border: 1.5px solid var(--border); color: var(--text); }
+.room-btn-danger { background: #fff3f0; border: 1.5px solid var(--border); color: var(--tomato); }
+.room-code-display {
+  text-align: center;
+  font-size: 1.4em;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: var(--tomato-dark);
+  margin-bottom: 10px;
+  padding: 8px;
+  background: var(--tomato-pale);
+  border-radius: 10px;
+}
+.room-member-list { margin-bottom: 10px; }
+.room-member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  font-size: 0.85em;
+}
+.room-member.focusing { background: #e8f5e9; }
+.room-member.break { background: #e3f2fd; }
+.room-member.idle { background: #f5f5f5; }
+.room-status-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.room-member.focusing .room-status-dot { background: #4caf50; }
+.room-member.break .room-status-dot { background: #2196f3; }
+.room-member.idle .room-status-dot { background: #bbb; }
+.room-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
 /* ===== 오늘 공부 중인 인원 ===== */
 .active-users-bar {
   font-size: 0.78em;
@@ -829,6 +946,26 @@
       <!-- 메모 항목들이 여기에 추가됨 -->
     </div>
   </div>
+
+<!-- 스터디룸 팝업 -->
+<div id="room-box" class="room-box" style="display:none;">
+  <div id="room-header" class="room-header">🤝 스터디룸</div>
+  <div class="room-body">
+    <!-- 참여 전 UI -->
+    <div id="room-join-ui">
+      <button class="room-btn room-btn-primary" id="create-room-btn">방 만들기</button>
+      <hr class="room-divider">
+      <input type="text" class="room-input" id="room-code-input" placeholder="방 코드 입력" maxlength="6">
+      <button class="room-btn room-btn-outline" id="join-room-btn">참여하기</button>
+    </div>
+    <!-- 참여 후 UI -->
+    <div id="room-active-ui" style="display:none;">
+      <div class="room-code-display" id="room-code-display"></div>
+      <div class="room-member-list" id="room-member-list"></div>
+      <button class="room-btn room-btn-danger" id="leave-room-btn">방 나가기</button>
+    </div>
+  </div>
+</div>
 
 <!-- bgm 관련 -->
   <div id="bgm-box" class="bgm-box" style="display:none;">
@@ -940,6 +1077,13 @@
     </button>
 
 
+    <!-- 스터디룸 버튼 -->
+    <button class="circle-btn" id="room-btn" title="스터디룸">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+      </svg>
+    </button>
+
     <!-- AI 추천 버튼 -->
     <button class="circle-btn" id="ai-btn" title="AI 플랜 추천">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -987,6 +1131,12 @@
     </div>
   </div>
 
+
+<!-- 레벨/스트릭 배지 -->
+<div class="level-streak-bar" id="level-streak-bar" style="display:none;">
+  <span class="level-badge" id="level-badge">Lv.1</span>
+  <span class="streak-badge" id="streak-badge">🔥 0일</span>
+</div>
 
 <!-- 오늘 공부 인원 -->
 <div class="active-users-bar">
@@ -1207,6 +1357,13 @@ async function loadMemos() {
         document.getElementById("focus-input").value = focusTime;
         document.getElementById("break-input").value = breakTime;
 
+        // 레벨/스트릭 배지 표시
+        if (data.level !== undefined) {
+          document.getElementById("level-badge").textContent = `Lv.${data.level}`;
+          document.getElementById("streak-badge").textContent = `🔥 ${data.streak}일`;
+          document.getElementById("level-streak-bar").style.display = "flex";
+        }
+
         // 표시 업데이트 호출
         updateDisplays();
       } catch (err) {
@@ -1233,6 +1390,7 @@ async function loadMemos() {
     function startTimer() {
       if (!isRunning) {
         startedAt = new Date();
+        sendRoomStatus("focusing");
         // 처음 시작
         focusTime = parseInt(document.getElementById("focus-input").value);
         breakTime = parseInt(document.getElementById("break-input").value);
@@ -1285,10 +1443,12 @@ async function loadMemos() {
           sendBrowserNotification('✅ 집중 완료!', `${currentCount}/${totalCount} 세션 완료! 잠시 휴식하세요.`);
           isFocus = false;
           remainingTime = breakTime * 60;
+          sendRoomStatus("break");
         } else {
           sendBrowserNotification('⏰ 휴식 종료!', '다시 집중을 시작해볼까요?');
           isFocus = true;
           remainingTime = focusTime * 60;
+          sendRoomStatus("focusing");
         }
       }
     }
@@ -1298,6 +1458,7 @@ async function loadMemos() {
       timer = null;
       isRunning = false;
       isPaused = false;
+      sendRoomStatus("idle");
 
       if (!startedAt) return; // 시작된 적 없으면 기록 안 함
       const endedAt = new Date();
@@ -2452,6 +2613,103 @@ setInterval(createPetal, 350);
 for (let i = 0; i < 20; i++) {
   setTimeout(createPetal, i * 80);
 }
+
+
+// ==================== 스터디룸 ====================
+let roomWs = null;
+let currentRoomCode = null;
+
+function sendRoomStatus(status) {
+  if (roomWs && roomWs.readyState === WebSocket.OPEN) {
+    roomWs.send(JSON.stringify({ type: "status_update", status }));
+  }
+}
+
+function renderMembers(members) {
+  const list = document.getElementById("room-member-list");
+  list.innerHTML = members.map(m => {
+    const statusLabel = { focusing: "🍅 집중 중", break: "☕ 휴식 중", idle: "💤 대기 중" }[m.status] || m.status;
+    return `<div class="room-member ${m.status}">
+      <span class="room-status-dot"></span>
+      <span style="flex:1">${m.nickname}</span>
+      <span style="font-size:0.8em;color:#888">${statusLabel}</span>
+    </div>`;
+  }).join("");
+}
+
+function connectRoomWs(code) {
+  const token = localStorage.getItem("access_token");
+  if (!token) return;
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  roomWs = new WebSocket(`${proto}://${location.host}/room/ws/${code}?token=${token}`);
+
+  roomWs.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.members) renderMembers(msg.members);
+  };
+  roomWs.onclose = () => {
+    roomWs = null;
+  };
+}
+
+function enterRoom(code) {
+  currentRoomCode = code;
+  document.getElementById("room-join-ui").style.display = "none";
+  document.getElementById("room-active-ui").style.display = "block";
+  document.getElementById("room-code-display").textContent = code;
+  connectRoomWs(code);
+}
+
+function leaveRoom() {
+  if (roomWs) { roomWs.close(); roomWs = null; }
+  currentRoomCode = null;
+  document.getElementById("room-active-ui").style.display = "none";
+  document.getElementById("room-join-ui").style.display = "block";
+  document.getElementById("room-member-list").innerHTML = "";
+  sendRoomStatus("idle");
+}
+
+// 방 버튼 열기/닫기
+const roomBox = document.getElementById("room-box");
+document.getElementById("room-btn").addEventListener("click", async () => {
+  const loggedIn = await ensureLogin();
+  if (!loggedIn) return;
+  roomBox.style.display = roomBox.style.display === "none" || roomBox.style.display === "" ? "block" : "none";
+});
+
+// 방 만들기
+document.getElementById("create-room-btn").addEventListener("click", async () => {
+  const token = localStorage.getItem("access_token");
+  const res = await fetch("/room/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+    body: JSON.stringify({ name: "스터디룸" })
+  });
+  if (!res.ok) { alert("방 생성 실패"); return; }
+  const data = await res.json();
+  enterRoom(data.code);
+});
+
+// 방 참여
+document.getElementById("join-room-btn").addEventListener("click", async () => {
+  const code = document.getElementById("room-code-input").value.trim().toUpperCase();
+  if (code.length !== 6) { alert("방 코드는 6자리입니다."); return; }
+  const res = await fetch(`/room/info/${code}`);
+  if (!res.ok) { alert("방을 찾을 수 없습니다."); return; }
+  enterRoom(code);
+});
+
+// 방 나가기
+document.getElementById("leave-room-btn").addEventListener("click", leaveRoom);
+
+// 스터디룸 팝업 드래그
+(function() {
+  const header = document.getElementById("room-header");
+  let ox = 0, oy = 0, dragging = false;
+  header.addEventListener("mousedown", e => { dragging = true; ox = e.clientX - roomBox.offsetLeft; oy = e.clientY - roomBox.offsetTop; });
+  document.addEventListener("mousemove", e => { if (dragging) { roomBox.style.left = (e.clientX - ox) + "px"; roomBox.style.top = (e.clientY - oy) + "px"; } });
+  document.addEventListener("mouseup", () => { dragging = false; });
+})();
 
   </script>
 </body>

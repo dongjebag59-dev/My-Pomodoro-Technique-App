@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, extract
 from db import get_db, StudyRecord
-from user import get_current_user
-from datetime import date
+from user import get_current_user, calc_level
+from datetime import date, timedelta
 from pydantic import BaseModel
 from typing import Dict
 
@@ -46,8 +46,21 @@ async def create_session(
 
     record.goal_achieved = (record.total_minutes >= current_user.goal_minutes)
 
+    # 스트릭 계산
+    yesterday = today - timedelta(days=1)
+    last_date = current_user.last_study_date
+    if last_date == yesterday:
+        current_user.streak = (current_user.streak or 0) + 1
+    elif last_date == today:
+        pass  # 오늘 이미 공부 기록 있으면 유지
+    else:
+        current_user.streak = 1  # 연속 끊김 또는 첫 공부
+    current_user.last_study_date = today
+    current_user.level = calc_level(current_user.exp)
+    db.add(current_user)
+
     await db.commit()
-    return {"message": "저장 완료", "goal_achieved": record.goal_achieved}
+    return {"message": "저장 완료", "goal_achieved": record.goal_achieved, "streak": current_user.streak}
 
 # 일별 통계
 @stats_router.get("/daily")

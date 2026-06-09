@@ -11,7 +11,7 @@ from typing import Optional, List
 import os
 from db import get_db, User, Memo, PomodoroSession, SessionDetail
 from db import Track, UserTrackSetting
-from user import get_current_user
+from user import get_current_user, calc_level
 
 router = APIRouter(prefix="/timer")
 
@@ -78,11 +78,13 @@ async def timer_page():
 
 # 모바일 페이지 욕심을 위한 api 분리
 @router.get("/api/timer-data")
-async def timer_data(current_user:User=Depends(get_current_user)):
+async def timer_data(current_user: User = Depends(get_current_user)):
     return {
         "logged_in": True,
         "focus_time": current_user.default_focus_time,
         "break_time": current_user.default_break_time,
+        "level": calc_level(current_user.exp),
+        "streak": current_user.streak or 0,
     }
 
 @router.get("/api/memos")

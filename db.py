@@ -41,6 +41,9 @@ class User(Base):                                                 # 유저 테�
     ai_mode = Column(String(20))
     created_at = Column(DateTime, default=func.now())
     exp = Column(Integer, default=0, nullable=False)
+    level = Column(Integer, default=1, nullable=False)
+    streak = Column(Integer, default=0, nullable=False)
+    last_study_date = Column(Date, nullable=True)
 
 class PomodoroSession(Base):                                     # 포모도로 세션 테이블
     __tablename__ = "pomodoro_sessions"
@@ -87,6 +90,25 @@ class StudyRecord(Base):                                         # 공부기록 
     completed_sessions = Column(Integer, default=0)
     goal_achieved = Column(Boolean, default=False)
     __table_args__ = (UniqueConstraint("user_id", "date"),)
+
+class StudyRoom(Base):                                           # 스터디룸 테이블
+    __tablename__ = "study_rooms"
+    id = Column(Integer, primary_key=True)
+    code = Column(String(6), unique=True, nullable=False)
+    host_user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String(100), default="스터디룸")
+    created_at = Column(DateTime, default=func.now())
+    is_active = Column(Boolean, default=True)
+
+
+class RoomMember(Base):                                          # 스터디룸 참여자 테이블
+    __tablename__ = "room_members"
+    id = Column(Integer, primary_key=True)
+    room_id = Column(Integer, ForeignKey("study_rooms.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    joined_at = Column(DateTime, default=func.now())
+    __table_args__ = (UniqueConstraint("room_id", "user_id"),)
+
 
 class AiLog(Base):                                              # AI 로그 테이블
     __tablename__ = "ai_logs"

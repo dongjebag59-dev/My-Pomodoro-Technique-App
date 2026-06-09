@@ -796,6 +796,37 @@ def generate_ai_message_with_history(
 
 
 # -----------------------------
+# 슬럼프 감지 메시지 생성
+# -----------------------------
+def generate_slump_message(nickname: str) -> str:
+    api_key = os.getenv("GEMINI_API_KEY")
+    fallback = (
+        f"{nickname}님, 요즘 공부가 좀 힘드셨죠? 괜찮아요. "
+        "완벽하게 매일 하지 않아도 됩니다. "
+        "오늘은 딱 25분만 시작해보는 건 어때요? 작은 시작이 큰 변화를 만들어요. 💪"
+    )
+    if not api_key:
+        return fallback
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=(
+                f"포모도로 공부 앱 사용자 '{nickname}'님이 최근 3일 연속으로 목표 공부 시간을 채우지 못했습니다. "
+                "이 사용자에게 부드럽고 따뜻하게 다시 시작할 용기를 주는 짧은 한국어 격려 메시지를 2~3문장으로 작성해주세요. "
+                "너무 가르치듯 하지 말고, 친구처럼 공감하며 말해주세요."
+            ),
+            config=types.GenerateContentConfig(
+                temperature=0.9,
+                max_output_tokens=150,
+            ),
+        )
+        return response.text.strip() if response.text else fallback
+    except Exception:
+        return fallback
+
+
+# -----------------------------
 # Router endpoints
 # -----------------------------
 @router.get("", summary="AI 서비스 상태 확인")
@@ -857,6 +888,29 @@ async def create_personalized_plan(
         )
 
     return plan
+
+
+@router.get("/slump-check", summary="슬럼프 감지")
+async def slump_check(
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    today = date.today()
+    slump = True
+    for i in range(1, 4):
+        check_date = today - timedelta(days=i)
+        result = await db.execute(
+            select(StudyRecord).where(
+                StudyRecord.user_id == current_user.id,
+                StudyRecord.date == check_date,
+            )
+        )
+        record = result.scalars().first()
+        if record and record.goal_achieved:
+            slump = False
+            break
+    message = generate_slump_message(current_user.nickname) if slump else ""
+    return {"slump": slump, "message": message}
 
 
 # -----------------------------
