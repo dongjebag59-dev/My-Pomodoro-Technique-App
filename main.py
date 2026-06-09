@@ -7,6 +7,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from sqlalchemy import text
 
 import ai_service
 import db
@@ -24,10 +25,24 @@ def _get_real_ip(request: Request) -> str:
 limiter = Limiter(key_func=_get_real_ip, default_limits=["120/minute"])
 
 
+# 기존 테이블에 새 컬럼을 안전하게 추가 (IF NOT EXISTS → 기존 데이터 보존)
+_MIGRATIONS = [
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS level          INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS streak         INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_study_date DATE",
+]
+
+
+async def _run_migrations(conn) -> None:
+    for stmt in _MIGRATIONS:
+        await conn.execute(text(stmt))
+
+
 @asynccontextmanager
 async def app_life_span(app: FastAPI):
     async with db.engine.begin() as conn:
-        await conn.run_sync(db.Base.metadata.create_all)
+        await _run_migrations(conn)                        # ① 기존 테이블 컬럼 추가
+        await conn.run_sync(db.Base.metadata.create_all)  # ② 신규 테이블 생성
     await bgm_import.seed_tracks()
     yield
 
