@@ -1458,9 +1458,9 @@ async function loadMemos() {
       timer = null;
       isRunning = false;
       isPaused = false;
-      sendRoomStatus("idle");
 
       if (!startedAt) return; // 시작된 적 없으면 기록 안 함
+      sendRoomStatus("idle");
       const endedAt = new Date();
 
       // duration = 집중 시간 × 횟수 (분 단위)
@@ -2661,12 +2661,15 @@ function enterRoom(code) {
 }
 
 function leaveRoom() {
-  if (roomWs) { roomWs.close(); roomWs = null; }
+  if (roomWs) {
+    sendRoomStatus("idle");
+    roomWs.close();
+    roomWs = null;
+  }
   currentRoomCode = null;
   document.getElementById("room-active-ui").style.display = "none";
   document.getElementById("room-join-ui").style.display = "block";
   document.getElementById("room-member-list").innerHTML = "";
-  sendRoomStatus("idle");
 }
 
 // 방 버튼 열기/닫기

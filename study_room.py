@@ -1,4 +1,4 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
@@ -115,10 +115,13 @@ async def room_info(code: str, db: AsyncSession = Depends(get_db)):
 async def room_ws(
     room_code: str,
     websocket: WebSocket,
-    token: str,
+    token: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     # JWT 검증
+    if not token:
+        await websocket.close(code=1008)
+        return
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("user_id")

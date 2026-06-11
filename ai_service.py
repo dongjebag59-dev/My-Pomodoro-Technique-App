@@ -897,6 +897,7 @@ async def slump_check(
 ):
     today = date.today()
     slump = True
+    has_records = False
     for i in range(1, 4):
         check_date = today - timedelta(days=i)
         result = await db.execute(
@@ -906,9 +907,13 @@ async def slump_check(
             )
         )
         record = result.scalars().first()
-        if record and record.goal_achieved:
-            slump = False
-            break
+        if record:
+            has_records = True
+            if record.goal_achieved:
+                slump = False
+                break
+    if not has_records:
+        slump = False
     message = generate_slump_message(current_user.nickname) if slump else ""
     return {"slump": slump, "message": message}
 
