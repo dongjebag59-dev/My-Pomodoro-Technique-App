@@ -2,23 +2,25 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
-# from typing import Optional
 from datetime import datetime, timedelta, timezone
+import hashlib
 import math
 import os
+import secrets
 
-from db import get_db, User
+from db import get_db, User, RefreshToken
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("ACCESS_TOKEN_EXPIRE_HOURS", 2))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
@@ -54,7 +56,12 @@ class SignupResponse(BaseModel):
 
 class LoginResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class MypageResponse(BaseModel):
@@ -88,6 +95,19 @@ def create_access_token(data: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def _hash_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+async def _create_refresh_token(user_id: int, db: AsyncSession) -> str:
+    raw = secrets.token_urlsafe(48)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    await db.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
+    db.add(RefreshToken(user_id=user_id, token_hash=_hash_token(raw), expires_at=expires_at))
+    await db.commit()
+    return raw
 
 
 def calc_level(exp: int) -> int:
@@ -173,9 +193,10 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user or not verify_password(body.password, user.password):
         raise HTTPException(status_code=401, detail="Email or password is incorrect")
 
-    token = create_access_token({"user_id": user.id})
+    access_token = create_access_token({"user_id": user.id})
+    refresh_token = await _create_refresh_token(user.id, db)
 
-    return LoginResponse(access_token=token, token_type="bearer")
+    return LoginResponse(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
 
 
 # 마이페이지 조회
@@ -207,6 +228,28 @@ async def update_settings(
     await db.commit()
 
     return SettingsResponse(message="settings updated")
+
+# 토큰 갱신
+@router.post("/refresh")
+async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    stored = (await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.token_hash == _hash_token(body.refresh_token),
+            RefreshToken.expires_at > datetime.now(timezone.utc),
+        )
+    )).scalar_one_or_none()
+    if not stored:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    return {"access_token": create_access_token({"user_id": stored.user_id}), "token_type": "bearer"}
+
+
+# 로그아웃 (리프레시 토큰 무효화)
+@router.post("/logout")
+async def logout(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    await db.execute(delete(RefreshToken).where(RefreshToken.token_hash == _hash_token(body.refresh_token)))
+    await db.commit()
+    return {"message": "logged out"}
+
 
 # 닉네임 수정
 class NicknameRequest(BaseModel):

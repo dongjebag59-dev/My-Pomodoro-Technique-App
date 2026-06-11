@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, extract
-from db import get_db, StudyRecord
+from sqlalchemy import select, extract, func
+from db import get_db, StudyRecord, User
 from user import get_current_user, calc_level
 from datetime import date, timedelta
 from pydantic import BaseModel
@@ -125,6 +125,89 @@ async def get_yearly_stats(
         )
     )
     return result.scalars().all()
+
+
+@stats_router.get("/summary")
+async def get_summary(
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
+
+    week_res = await db.execute(
+        select(func.sum(StudyRecord.total_minutes)).where(
+            StudyRecord.user_id == current_user.id,
+            StudyRecord.date >= week_start,
+        )
+    )
+    month_res = await db.execute(
+        select(func.sum(StudyRecord.total_minutes)).where(
+            StudyRecord.user_id == current_user.id,
+            StudyRecord.date >= month_start,
+        )
+    )
+    # 이번 달 달성률
+    total_days_res = await db.execute(
+        select(func.count()).where(
+            StudyRecord.user_id == current_user.id,
+            StudyRecord.date >= month_start,
+        )
+    )
+    achieved_days_res = await db.execute(
+        select(func.count()).where(
+            StudyRecord.user_id == current_user.id,
+            StudyRecord.date >= month_start,
+            StudyRecord.goal_achieved == True,
+        )
+    )
+    # 최대 스트릭 계산 (전체 기록에서)
+    all_records = (await db.execute(
+        select(StudyRecord.date, StudyRecord.goal_achieved)
+        .where(StudyRecord.user_id == current_user.id)
+        .order_by(StudyRecord.date)
+    )).all()
+
+    max_streak = 0
+    cur_streak = 0
+    prev_date = None
+    for rec_date, achieved in all_records:
+        if prev_date and (rec_date - prev_date).days == 1 and achieved:
+            cur_streak += 1
+        elif achieved:
+            cur_streak = 1
+        else:
+            cur_streak = 0
+        max_streak = max(max_streak, cur_streak)
+        prev_date = rec_date
+
+    total_days = total_days_res.scalar() or 0
+    achieved_days = achieved_days_res.scalar() or 0
+    return {
+        "week_minutes": week_res.scalar() or 0,
+        "month_minutes": month_res.scalar() or 0,
+        "month_achievement_rate": round(achieved_days / total_days * 100) if total_days else 0,
+        "max_streak": max_streak,
+        "current_streak": current_user.streak or 0,
+    }
+
+
+@stats_router.get("/achievement", response_model=Dict[str, bool])
+async def get_achievement(
+    year: int,
+    month: int,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(StudyRecord.date, StudyRecord.goal_achieved).where(
+            StudyRecord.user_id == current_user.id,
+            extract("year", StudyRecord.date) == year,
+            extract("month", StudyRecord.date) == month,
+        )
+    )
+    return {str(row[0]): bool(row[1]) for row in result.all()}
 
 
 @stats_router.get("/heatmap", response_model=Dict[str, int])

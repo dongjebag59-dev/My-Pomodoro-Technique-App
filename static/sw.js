@@ -52,3 +52,81 @@ self.addEventListener('push', event => {
     })
   );
 });
+
+// ===== 타이머 백그라운드 알림 =====
+
+let timerInterval = null;
+let timerState = null; // { phase, remaining, focusTime, breakTime }
+
+self.addEventListener('message', event => {
+  const { type, payload } = event.data || {};
+
+  if (type === 'TIMER_START') {
+    timerState = { ...payload };
+    clearInterval(timerInterval);
+    timerInterval = setInterval(_tick, 1000);
+
+  } else if (type === 'TIMER_STOP' || type === 'TIMER_PAUSE') {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    if (type === 'TIMER_STOP') timerState = null;
+
+  } else if (type === 'TIMER_RESUME') {
+    if (timerState) {
+      timerState = { ...timerState, ...payload };
+      clearInterval(timerInterval);
+      timerInterval = setInterval(_tick, 1000);
+    }
+
+  } else if (type === 'TIMER_SYNC') {
+    if (timerState) timerState = { ...timerState, ...payload };
+  }
+});
+
+function _tick() {
+  if (!timerState) return;
+  timerState.remaining--;
+
+  if (timerState.remaining <= 0) {
+    const wasPhase = timerState.phase;
+    if (wasPhase === 'focus') {
+      _notify('집중 완료!', `휴식을 시작하세요 (${timerState.breakTime}분)`);
+      timerState.phase = 'break';
+      timerState.remaining = timerState.breakTime * 60;
+    } else {
+      _notify('휴식 종료!', `다음 집중 세션을 시작하세요 (${timerState.focusTime}분)`);
+      timerState.phase = 'focus';
+      timerState.remaining = timerState.focusTime * 60;
+    }
+    _broadcastPhaseChange(timerState.phase);
+  }
+}
+
+function _notify(title, body) {
+  self.registration.showNotification(title, {
+    body,
+    icon: '/static/tomato.png',
+    badge: '/static/tomato.png',
+    tag: 'toti-timer',
+    renotify: true,
+  });
+}
+
+function _broadcastPhaseChange(phase) {
+  self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+    clients.forEach(c => c.postMessage({ type: 'PHASE_CHANGE', phase }));
+  });
+}
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      const focused = clients.find(c => c.focused);
+      if (focused) return focused.focus();
+      const open = clients.find(c => c.url.includes('/timer'));
+      if (open) return open.focus();
+      return self.clients.openWindow('/timer');
+    })
+  );
+});

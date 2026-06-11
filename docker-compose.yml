@@ -1,15 +1,15 @@
 services:
   app:
     build:
-    #custom image build
       context: .
-      #현재 폴더의 파일들로 만든다
       dockerfile: dockerfile
     container_name: toti-app
     env_file:
       - .env
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     expose:
       - "8000"
@@ -60,6 +60,18 @@ services:
       - ./nginx/certbot:/var/www/certbot
     networks:
       - toti-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: toti-redis
+    restart: always
+    networks:
+      - toti-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   certbot:
     image: certbot/certbot

@@ -110,6 +110,15 @@ class RoomMember(Base):                                          # 스터디룸 
     __table_args__ = (UniqueConstraint("room_id", "user_id"),)
 
 
+class RefreshToken(Base):                                        # 리프레시 토큰 테이블
+    __tablename__ = "refresh_tokens"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash = Column(String(64), unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
+
 class AiLog(Base):                                              # AI 로그 테이블
     __tablename__ = "ai_logs"
     id = Column(Integer, primary_key=True)

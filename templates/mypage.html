@@ -252,6 +252,34 @@
       text-align: right;
     }
 
+    /* ===== 통계 요약 바 ===== */
+    .stats-summary {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .summary-chip {
+      flex: 1; min-width: 80px; background: #fff; border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 8px 6px; text-align: center;
+    }
+    .summary-chip .sc-num { font-size: 1.1em; font-weight: 800; color: var(--tomato-dark); }
+    .summary-chip .sc-lbl { font-size: 0.7em; color: var(--text-sub); margin-top: 2px; }
+
+    /* ===== 달성 캘린더 ===== */
+    .achieve-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.85em; font-weight: 700; color: var(--tomato-dark); }
+    .achieve-nav { background: none; border: none; cursor: pointer; font-size: 1em; color: var(--tomato); padding: 2px 6px; }
+    .achieve-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+    .achieve-day-label { text-align: center; font-size: 0.65em; color: var(--text-sub); padding-bottom: 4px; }
+    .achieve-cell {
+      aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      font-size: 0.7em; font-weight: 700;
+    }
+    .achieve-cell.achieved { background: #c8e6c9; color: #2e7d32; }
+    .achieve-cell.not-achieved { background: #ffcdd2; color: #b71c1c; }
+    .achieve-cell.no-record { background: #f5f5f5; color: #bbb; }
+    .achieve-cell.future { background: transparent; color: transparent; }
+    .achieve-legend { display: flex; gap: 10px; font-size: 0.72em; color: var(--text-sub); margin-top: 8px; }
+    .achieve-legend span { display: flex; align-items: center; gap: 4px; }
+    .achieve-legend .dot { width: 10px; height: 10px; border-radius: 3px; }
+
     .settings-item {
       display: flex;
       justify-content: space-between;
@@ -335,11 +363,40 @@
   </div>
 
   <script>
-    const token = localStorage.getItem("access_token");
-
-    if (!token) {
+    if (!localStorage.getItem("access_token")) {
       alert("로그인이 필요합니다.");
       window.location.href = "/users/login-page";
+    }
+
+    async function tryRefresh() {
+      const rt = localStorage.getItem("refresh_token");
+      if (!rt) return false;
+      try {
+        const res = await fetch("/users/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: rt })
+        });
+        if (!res.ok) { localStorage.removeItem("access_token"); localStorage.removeItem("refresh_token"); return false; }
+        localStorage.setItem("access_token", (await res.json()).access_token);
+        return true;
+      } catch { return false; }
+    }
+
+    async function authFetch(url, options = {}) {
+      const token = localStorage.getItem("access_token");
+      const headers = { ...(options.headers || {}), "Authorization": `Bearer ${token}` };
+      let res = await fetch(url, { ...options, headers });
+      if (res.status === 401) {
+        if (await tryRefresh()) {
+          const h2 = { ...(options.headers || {}), "Authorization": `Bearer ${localStorage.getItem("access_token")}` };
+          res = await fetch(url, { ...options, headers: h2 });
+        } else {
+          alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+          window.location.href = "/users/login-page";
+        }
+      }
+      return res;
     }
 
     let chartInstance = null;
@@ -374,39 +431,35 @@
       try {
         if (tab === "daily") {
           const url = `/stats/daily?target_date=${yyyy}-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
-          const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
-          const data = await res.json();
+          const data = await (await authFetch(url)).json();
           labels = ["오늘"];
-          // null 또는 total_minutes 없을 때 0으로 처리
           values = [data && data.total_minutes ? data.total_minutes : 0];
 
         } else if (tab === "weekly") {
-          const url = `/stats/weekly?year=${yyyy}&week=${currentWeek}`;
-          const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
-          const data = await res.json();
+          const data = await (await authFetch(`/stats/weekly?year=${yyyy}&week=${currentWeek}`)).json();
           labels = data.map(d => d.date);
           values = data.map(d => d.total_minutes ?? 0);
 
         } else if (tab === "monthly") {
-          const url = `/stats/monthly?year=${yyyy}&month=${mm}`;
-          const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
-          const data = await res.json();
+          const data = await (await authFetch(`/stats/monthly?year=${yyyy}&month=${mm}`)).json();
           labels = data.map(d => d.date);
           values = data.map(d => d.total_minutes ?? 0);
 
         } else if (tab === "yearly") {
-          const url = `/stats/yearly?year=${yyyy}`;
-          const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
-          const data = await res.json();
+          const data = await (await authFetch(`/stats/yearly?year=${yyyy}`)).json();
           labels = data.map(d => d.date);
           values = data.map(d => d.total_minutes ?? 0);
 
         } else if (tab === "heatmap") {
-          const url = `/stats/heatmap?year=${yyyy}`;
-          const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
-          const data = await res.json();
+          const data = await (await authFetch(`/stats/heatmap?year=${yyyy}`)).json();
           document.getElementById("chart-area").innerHTML = `<div class="heatmap-container" id="heatmap-wrap"></div>`;
           renderHeatmap(data);
+          return;
+
+        } else if (tab === "achievement") {
+          const data = await (await authFetch(`/stats/achievement?year=${yyyy}&month=${mm}`)).json();
+          document.getElementById("chart-area").innerHTML = `<div id="achievement-wrap"></div>`;
+          renderAchievement(data, yyyy, mm);
           return;
         }
 
@@ -543,15 +596,8 @@
 
     async function loadMypage() {
       try {
-        const res = await fetch("/users/mypage", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-
-        if (res.status === 401) {
-          alert("로그인이 필요합니다.");
-          window.location.href = "/users/login-page";
-          return;
-        }
+        const res = await authFetch("/users/mypage");
+        if (!res.ok) return;
 
         const data = await res.json();
 
@@ -598,11 +644,13 @@
             <span class="arrow">▶</span>
           </button>
           <div class="stats-panel" id="stats-panel">
+            <div id="stats-summary-bar" class="stats-summary" style="display:none;"></div>
             <div class="tab-group">
               <button class="tab-btn active" data-tab="daily">일별</button>
               <button class="tab-btn" data-tab="weekly">주간</button>
               <button class="tab-btn" data-tab="monthly">월간</button>
               <button class="tab-btn" data-tab="yearly">연간</button>
+              <button class="tab-btn" data-tab="achievement">달성</button>
               <button class="tab-btn" data-tab="heatmap">히트맵</button>
             </div>
             <div id="chart-area">
@@ -615,19 +663,40 @@
             <span class="arrow">▶</span>
           </button>
           <div class="settings-panel" id="settings-panel">
-            <div class="settings-item">
-              <span>목표 시간</span>
-              <span>${data.goal_minutes}분</span>
+            <div id="settings-view">
+              <div class="settings-item">
+                <span>목표 시간</span><span id="sv-goal">${data.goal_minutes}분</span>
+              </div>
+              <div class="settings-item">
+                <span>기본 집중 시간</span><span id="sv-focus">${data.default_focus_time}분</span>
+              </div>
+              <div class="settings-item">
+                <span>기본 휴식 시간</span><span id="sv-break">${data.default_break_time}분</span>
+              </div>
+              <button class="edit-btn" id="settings-edit-btn">수정하기</button>
             </div>
-            <div class="settings-item">
-              <span>기본 집중 시간</span>
-              <span>${data.default_focus_time}분</span>
+            <div id="settings-edit" style="display:none;">
+              <div class="settings-item">
+                <span>목표 시간 (분)</span>
+                <input type="number" id="se-goal" min="1" max="1440" value="${data.goal_minutes}"
+                  style="width:70px;padding:4px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9em;font-family:Nunito,sans-serif;background:var(--tomato-pale);">
+              </div>
+              <div class="settings-item">
+                <span>기본 집중 시간 (분)</span>
+                <input type="number" id="se-focus" min="1" max="180" value="${data.default_focus_time}"
+                  style="width:70px;padding:4px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9em;font-family:Nunito,sans-serif;background:var(--tomato-pale);">
+              </div>
+              <div class="settings-item">
+                <span>기본 휴식 시간 (분)</span>
+                <input type="number" id="se-break" min="1" max="60" value="${data.default_break_time}"
+                  style="width:70px;padding:4px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:0.9em;font-family:Nunito,sans-serif;background:var(--tomato-pale);">
+              </div>
+              <div style="display:flex;gap:8px;margin-top:10px;">
+                <button class="edit-btn" id="settings-save-btn" style="background:linear-gradient(135deg,var(--tomato),var(--tomato-dark));color:#fff;border-color:transparent;">저장</button>
+                <button class="edit-btn" id="settings-cancel-btn">취소</button>
+              </div>
+              <div id="settings-msg" style="font-size:0.8em;min-height:16px;margin-top:4px;"></div>
             </div>
-            <div class="settings-item">
-              <span>기본 휴식 시간</span>
-              <span>${data.default_break_time}분</span>
-            </div>
-            <button class="edit-btn" id="go-settings-btn">설정 수정하기</button>
           </div>
         `;
 
@@ -643,6 +712,7 @@
           statsPanel.classList.toggle("open");
           if (statsPanel.classList.contains("open")) {
             loadStats("daily");
+            loadStatsSummary();
           }
         });
 
@@ -660,8 +730,45 @@
           settingsPanel.classList.toggle("open");
         });
 
-        document.getElementById("go-settings-btn").addEventListener("click", () => {
-          window.location.href = "/users/settings-page";
+        document.getElementById("settings-edit-btn").addEventListener("click", () => {
+          document.getElementById("settings-view").style.display = "none";
+          document.getElementById("settings-edit").style.display = "block";
+        });
+        document.getElementById("settings-cancel-btn").addEventListener("click", () => {
+          document.getElementById("settings-edit").style.display = "none";
+          document.getElementById("settings-view").style.display = "block";
+          document.getElementById("settings-msg").textContent = "";
+        });
+        document.getElementById("settings-save-btn").addEventListener("click", async () => {
+          const goal = parseInt(document.getElementById("se-goal").value);
+          const focus = parseInt(document.getElementById("se-focus").value);
+          const brk = parseInt(document.getElementById("se-break").value);
+          if (!goal || !focus || !brk || goal < 1 || focus < 1 || brk < 1) {
+            document.getElementById("settings-msg").style.color = "var(--tomato)";
+            document.getElementById("settings-msg").textContent = "올바른 값을 입력해주세요.";
+            return;
+          }
+          try {
+            const res = await authFetch("/users/settings", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ goal_minutes: goal, default_focus_time: focus, default_break_time: brk })
+            });
+            if (res.ok) {
+              document.getElementById("sv-goal").textContent = goal + "분";
+              document.getElementById("sv-focus").textContent = focus + "분";
+              document.getElementById("sv-break").textContent = brk + "분";
+              document.getElementById("settings-edit").style.display = "none";
+              document.getElementById("settings-view").style.display = "block";
+              document.getElementById("settings-msg").textContent = "";
+            } else {
+              document.getElementById("settings-msg").style.color = "var(--tomato)";
+              document.getElementById("settings-msg").textContent = "저장에 실패했습니다.";
+            }
+          } catch {
+            document.getElementById("settings-msg").style.color = "var(--tomato)";
+            document.getElementById("settings-msg").textContent = "서버와 연결할 수 없습니다.";
+          }
         });
 
         const nicknameDisplay = document.getElementById("nickname-display");
@@ -695,12 +802,9 @@
             return;
           }
           try {
-            const res = await fetch("/users/nickname", {
+            const res = await authFetch("/users/nickname", {
               method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-              },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ nickname: newNickname })
             });
             if (res.ok) {
@@ -726,12 +830,78 @@
 
     loadMypage();
 
+    // ===== 통계 요약 바 =====
+    async function loadStatsSummary() {
+      try {
+        const d = await (await authFetch("/stats/summary")).json();
+        const bar = document.getElementById("stats-summary-bar");
+        bar.style.display = "flex";
+        bar.innerHTML = [
+          { num: Math.floor(d.week_minutes / 60) + "h " + (d.week_minutes % 60) + "m", lbl: "이번 주" },
+          { num: Math.floor(d.month_minutes / 60) + "h " + (d.month_minutes % 60) + "m", lbl: "이번 달" },
+          { num: d.month_achievement_rate + "%", lbl: "달성률" },
+          { num: d.max_streak + "일", lbl: "최장 스트릭" },
+        ].map(({ num, lbl }) =>
+          `<div class="summary-chip"><div class="sc-num">${num}</div><div class="sc-lbl">${lbl}</div></div>`
+        ).join("");
+      } catch (_) {}
+    }
+
+    // ===== 달성 캘린더 렌더링 =====
+    let achieveYear = yyyy, achieveMonth = mm;
+
+    function renderAchievement(data, year, month) {
+      const wrap = document.getElementById("achievement-wrap");
+      if (!wrap) return;
+      const DAYS = ["일","월","화","수","목","금","토"];
+      const firstDay = new Date(year, month - 1, 1).getDay();
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const todayStr = `${yyyy}-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
+
+      let html = `<div class="achieve-header">
+        <button class="achieve-nav" id="achieve-prev">&#8592;</button>
+        <span>${year}년 ${month}월</span>
+        <button class="achieve-nav" id="achieve-next">&#8594;</button>
+      </div>
+      <div class="achieve-grid">
+        ${DAYS.map(d => `<div class="achieve-day-label">${d}</div>`).join("")}`;
+
+      for (let i = 0; i < firstDay; i++) html += `<div class="achieve-cell future"></div>`;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const ds = `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+        let cls = "no-record";
+        if (ds > todayStr) cls = "future";
+        else if (ds in data) cls = data[ds] ? "achieved" : "not-achieved";
+        html += `<div class="achieve-cell ${cls}" title="${ds}">${day}</div>`;
+      }
+      html += `</div>
+      <div class="achieve-legend">
+        <span><div class="dot" style="background:#c8e6c9;"></div> 목표 달성</span>
+        <span><div class="dot" style="background:#ffcdd2;"></div> 미달성</span>
+        <span><div class="dot" style="background:#f5f5f5;"></div> 기록 없음</span>
+      </div>`;
+      wrap.innerHTML = html;
+
+      document.getElementById("achieve-prev").addEventListener("click", async () => {
+        achieveMonth--;
+        if (achieveMonth < 1) { achieveMonth = 12; achieveYear--; }
+        const d2 = await (await authFetch(`/stats/achievement?year=${achieveYear}&month=${achieveMonth}`)).json();
+        document.getElementById("chart-area").innerHTML = `<div id="achievement-wrap"></div>`;
+        renderAchievement(d2, achieveYear, achieveMonth);
+      });
+      document.getElementById("achieve-next").addEventListener("click", async () => {
+        achieveMonth++;
+        if (achieveMonth > 12) { achieveMonth = 1; achieveYear++; }
+        const d2 = await (await authFetch(`/stats/achievement?year=${achieveYear}&month=${achieveMonth}`)).json();
+        document.getElementById("chart-area").innerHTML = `<div id="achievement-wrap"></div>`;
+        renderAchievement(d2, achieveYear, achieveMonth);
+      });
+    }
+
     // 슬럼프 감지
     async function checkSlump() {
       try {
-        const res = await fetch("/ai_service/slump-check", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
+        const res = await authFetch("/ai_service/slump-check");
         if (!res.ok) return;
         const data = await res.json();
         if (data.slump && data.message) {
@@ -743,8 +913,11 @@
     }
     checkSlump();
 
-    document.getElementById("logout-btn").addEventListener("click", () => {
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      const rt = localStorage.getItem("refresh_token");
+      if (rt) await fetch("/users/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: rt }) }).catch(() => {});
       localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
       window.location.href = "/users/login-page";
     });
   </script>

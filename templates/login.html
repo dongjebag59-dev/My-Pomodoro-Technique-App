@@ -187,6 +187,7 @@
 
         if (res.ok) {
           localStorage.setItem("access_token", data.access_token);
+          if (data.refresh_token) localStorage.setItem("refresh_token", data.refresh_token);
           window.location.href = "/timer";
         } else {
           document.getElementById("login-error").textContent = "이메일 또는 비밀번호가 올바르지 않습니다.";
