@@ -638,6 +638,20 @@
               <button class="btn-nickname-edit" id="nickname-cancel-btn" style="display:none;">취소</button>
             </span>
           </div>
+          <div class="info-group">
+            <span class="info-label">비밀번호</span>
+            <span style="display:flex; align-items:center; gap:8px;">
+              <span class="info-value" id="pw-display">••••••••</span>
+              <div id="pw-edit-form" style="display:none; flex-direction:column; gap:6px;">
+                <input type="password" id="pw-current" placeholder="현재 비밀번호" style="padding:4px 8px; border:1.5px solid var(--border); border-radius:8px; font-size:0.9em; font-family:Nunito,sans-serif; background:var(--tomato-pale);">
+                <input type="password" id="pw-new" placeholder="새 비밀번호 (6자 이상)" style="padding:4px 8px; border:1.5px solid var(--border); border-radius:8px; font-size:0.9em; font-family:Nunito,sans-serif; background:var(--tomato-pale);">
+                <input type="password" id="pw-confirm" placeholder="새 비밀번호 확인" style="padding:4px 8px; border:1.5px solid var(--border); border-radius:8px; font-size:0.9em; font-family:Nunito,sans-serif; background:var(--tomato-pale);">
+              </div>
+              <button class="btn-nickname-edit" id="pw-edit-btn">변경</button>
+              <button class="btn-nickname-edit" id="pw-save-btn" style="display:none;">저장</button>
+              <button class="btn-nickname-edit" id="pw-cancel-btn" style="display:none;">취소</button>
+            </span>
+          </div>
 
           <button class="menu-btn" id="stats-toggle-btn">
             <span>통계 보기</span>
@@ -829,6 +843,54 @@
     }
 
     loadMypage();
+
+    // ===== 비밀번호 변경 =====
+    const pwDisplay  = document.getElementById("pw-display");
+    const pwEditForm = document.getElementById("pw-edit-form");
+    const pwEditBtn  = document.getElementById("pw-edit-btn");
+    const pwSaveBtn  = document.getElementById("pw-save-btn");
+    const pwCancelBtn= document.getElementById("pw-cancel-btn");
+    const pwCurrent  = document.getElementById("pw-current");
+    const pwNew      = document.getElementById("pw-new");
+    const pwConfirm  = document.getElementById("pw-confirm");
+
+    pwEditBtn.addEventListener("click", () => {
+      pwDisplay.style.display = "none";
+      pwEditForm.style.display = "flex";
+      pwEditBtn.style.display = "none";
+      pwSaveBtn.style.display = "inline-block";
+      pwCancelBtn.style.display = "inline-block";
+      pwCurrent.focus();
+    });
+
+    pwCancelBtn.addEventListener("click", () => {
+      pwDisplay.style.display = "inline-block";
+      pwEditForm.style.display = "none";
+      pwEditBtn.style.display = "inline-block";
+      pwSaveBtn.style.display = "none";
+      pwCancelBtn.style.display = "none";
+      pwCurrent.value = ""; pwNew.value = ""; pwConfirm.value = "";
+    });
+
+    pwSaveBtn.addEventListener("click", async () => {
+      if (!pwCurrent.value) { alert("현재 비밀번호를 입력해주세요."); return; }
+      if (pwNew.value.length < 6) { alert("새 비밀번호는 6자 이상이어야 합니다."); return; }
+      if (pwNew.value !== pwConfirm.value) { alert("새 비밀번호가 일치하지 않습니다."); return; }
+      try {
+        const res = await authFetch("/users/password", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ current_password: pwCurrent.value, new_password: pwNew.value })
+        });
+        if (res.ok) {
+          alert("비밀번호가 변경되었습니다.");
+          pwCancelBtn.click();
+        } else {
+          const err = await res.json();
+          alert(err.detail || "비밀번호 변경에 실패했습니다.");
+        }
+      } catch (_) { alert("서버와 연결할 수 없습니다."); }
+    });
 
     // ===== 통계 요약 바 =====
     async function loadStatsSummary() {

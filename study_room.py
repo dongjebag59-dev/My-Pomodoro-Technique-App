@@ -219,6 +219,17 @@ async def room_ws(
         await websocket.close(code=1011)
         return
 
+    # RoomMember 기록 (upsert 방식: 이미 있으면 skip)
+    room_row = (await db.execute(
+        select(StudyRoom).where(StudyRoom.code == room_code)
+    )).scalars().first()
+    existing_member = (await db.execute(
+        select(RoomMember).where(RoomMember.room_id == room_row.id, RoomMember.user_id == user_id)
+    )).scalars().first()
+    if not existing_member:
+        db.add(RoomMember(room_id=room_row.id, user_id=user_id))
+        await db.commit()
+
     await manager.connect(room_code, websocket, user_id, user.nickname)
     await manager.broadcast(room_code, {
         "type": "member_join",
@@ -243,9 +254,14 @@ async def room_ws(
 
     except WebSocketDisconnect:
         manager.disconnect(room_code, user_id)
+        remaining = manager.get_state(room_code)
         await manager.broadcast(room_code, {
             "type": "member_leave",
             "user_id": user_id,
             "nickname": user.nickname,
-            "members": manager.get_state(room_code),
+            "members": remaining,
         })
+        # 호스트 퇴장 또는 마지막 멤버 퇴장 시 방 비활성화
+        if not remaining or room_row.host_user_id == user_id:
+            room_row.is_active = False
+            await db.commit()

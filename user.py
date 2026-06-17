@@ -264,3 +264,21 @@ async def update_nickname(
     user.nickname = body.nickname
     await db.commit()
     return SettingsResponse(message="nickname updated")
+
+
+# 비밀번호 변경
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6, description="새 비밀번호 (최소 6자)")
+
+@router.put("/password", response_model=SettingsResponse)
+async def change_password(
+    body: PasswordChangeRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if not verify_password(body.current_password, user.password):
+        raise HTTPException(status_code=400, detail="현재 비밀번호가 올바르지 않습니다.")
+    user.password = hash_password(body.new_password)
+    await db.commit()
+    return SettingsResponse(message="password updated")

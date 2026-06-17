@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
@@ -16,6 +17,10 @@ import study_room
 import timer
 import user
 import bgm_import
+
+_SECRET_KEY = os.getenv("SECRET_KEY")
+if not _SECRET_KEY:
+    raise RuntimeError("SECRET_KEY 환경변수가 설정되지 않았습니다. .env 파일을 확인하세요.")
 
 
 def _get_real_ip(request: Request) -> str:

@@ -162,23 +162,21 @@ async def get_summary(
             StudyRecord.goal_achieved == True,
         )
     )
-    # 최대 스트릭 계산 (전체 기록에서)
-    all_records = (await db.execute(
-        select(StudyRecord.date, StudyRecord.goal_achieved)
+    # 최대 스트릭 계산: User.streak과 동일하게 '공부한 날' 기준 (goal_achieved 무관)
+    all_dates = (await db.execute(
+        select(StudyRecord.date)
         .where(StudyRecord.user_id == current_user.id)
         .order_by(StudyRecord.date)
-    )).all()
+    )).scalars().all()
 
     max_streak = 0
     cur_streak = 0
     prev_date = None
-    for rec_date, achieved in all_records:
-        if prev_date and (rec_date - prev_date).days == 1 and achieved:
+    for rec_date in all_dates:
+        if prev_date and (rec_date - prev_date).days == 1:
             cur_streak += 1
-        elif achieved:
-            cur_streak = 1
         else:
-            cur_streak = 0
+            cur_streak = 1
         max_streak = max(max_streak, cur_streak)
         prev_date = rec_date
 
