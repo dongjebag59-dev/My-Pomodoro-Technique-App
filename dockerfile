@@ -1,5 +1,7 @@
 FROM python:3.12-slim
 
+ENV TZ=Asia/Seoul
+
 WORKDIR /app
 #컨테이너 안에서 작업폴더 /app으로 지정함. 앞으로의 현재폴더(.)
 

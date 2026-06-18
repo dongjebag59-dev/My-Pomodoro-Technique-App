@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 import ai_service
 import db
+import my_calendar
 import stats
 import study_room
 import timer
@@ -76,6 +77,7 @@ app.include_router(user.router)
 app.include_router(stats.router)
 app.include_router(stats.stats_router)
 app.include_router(study_room.router)
+app.include_router(my_calendar.router)
 
 
 @app.get("/")

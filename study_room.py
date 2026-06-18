@@ -185,6 +185,25 @@ async def room_info(code: str, db: AsyncSession = Depends(get_db)):
     return {"code": room.code, "name": room.name, "members": manager.get_state(code)}
 
 
+@router.get("/list")
+async def list_rooms(db: AsyncSession = Depends(get_db)):
+    """활성 스터디룸 목록 — 현재 접속 인원이 있는 방만 반환."""
+    rooms = (await db.execute(
+        select(StudyRoom).where(StudyRoom.is_active == True).order_by(StudyRoom.created_at.desc())
+    )).scalars().all()
+    result = []
+    for room in rooms:
+        members = manager.get_state(room.code)
+        if members:  # 아무도 없는 방은 목록에서 제외
+            result.append({
+                "code": room.code,
+                "name": room.name,
+                "member_count": len(members),
+                "members": members,
+            })
+    return result
+
+
 # ==================== WebSocket 엔드포인트 ====================
 
 @router.websocket("/ws/{room_code}")

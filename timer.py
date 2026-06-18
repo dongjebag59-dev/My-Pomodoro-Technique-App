@@ -28,9 +28,6 @@ class MemoWrite(BaseModel):
     title: str
     content: str
 
-class TodoCreate(BaseModel):
-    content: str
-
 class TodoUpdate(BaseModel):
     is_completed: bool
 
@@ -345,22 +342,32 @@ async def update_track_order(body: List[TrackOrderUpdate],
 # ==================== Todo CRUD ====================
 
 @router.get("/api/todos")
-async def get_todos(current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_todos(
+    target_date: Optional[date] = None,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    query_date = target_date or date.today()
     result = await db.execute(
-        select(Todo).where(Todo.user_id == current_user.id, Todo.date == date.today())
+        select(Todo).where(Todo.user_id == current_user.id, Todo.date == query_date)
         .order_by(Todo.created_at)
     )
     todos = result.scalars().all()
-    return [{"id": t.id, "content": t.content, "is_completed": t.is_completed} for t in todos]
+    return [{"id": t.id, "content": t.content, "is_completed": t.is_completed, "date": str(t.date)} for t in todos]
+
+
+class TodoCreate(BaseModel):
+    content: str
+    target_date: Optional[date] = None
 
 
 @router.post("/api/todos", status_code=201)
 async def create_todo(body: TodoCreate, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    todo = Todo(user_id=current_user.id, date=date.today(), content=body.content)
+    todo = Todo(user_id=current_user.id, date=body.target_date or date.today(), content=body.content)
     db.add(todo)
     await db.commit()
     await db.refresh(todo)
-    return {"id": todo.id, "content": todo.content, "is_completed": todo.is_completed}
+    return {"id": todo.id, "content": todo.content, "is_completed": todo.is_completed, "date": str(todo.date)}
 
 
 @router.put("/api/todos/{todo_id}")

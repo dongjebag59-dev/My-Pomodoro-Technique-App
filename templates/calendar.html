@@ -1,386 +1,260 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="description" content="Tomato Study Manager">
-    <meta name="keywords" content="tomato, calendar, study">
-    <title>🍅 토마토 학습 매니저</title>
-    <style>
-        /* 기본 레이아웃 */
-        body { 
-            font-family: 'Arial', sans-serif; 
-            background-color: #f4f4f9; 
-            display: flex; 
-            justify-content: center; 
-            align-items: flex-start; 
-            padding: 50px; 
-            gap: 30px;
-            margin-top: 50px;
-        }
-
-        /* 카드 공통 스타일 */
-        .card { 
-            background: white; 
-            padding: 30px; 
-            border-radius: 20px; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-            min-height: 550px;
-        }
-
-        .left-section { width: 350px; text-align: center; }
-        .right-section { width: 450px; display: flex; flex-direction: column; gap: 20px; }
-
-        /* 입력 요소 스타일 */
-        #current-date { width: 85%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 1.1rem; margin-bottom: 15px; }
-        .input-group { display: flex; gap: 5px; margin-bottom: 15px; }
-        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        
-        /* Todo 리스트 디자인 (Inline 스타일 제거) */
-        .todo-list { text-align: left; margin-top: 20px; }
-        #todo-items { padding: 0; margin: 0; }
-        .todo-item { 
-            background: #f9f9f9; 
-            margin: 8px 0; 
-            padding: 12px; 
-            border-radius: 10px; 
-            border-left: 5px solid #ff6b6b; 
-            list-style: none; 
-        }
-
-        /* 메모 섹션 디자인 */
-        .memo-box { border: 2px solid #333; border-radius: 15px; padding: 20px; flex-grow: 1; position: relative; }
-        .memo-title-input { width: 100%; border:none; border-bottom: 2px solid #333; font-size: 1.2rem; font-weight: bold; padding: 5px 0; outline: none; }
-        .ai-message { background: #fff; border: 1px solid #ddd; border-radius: 20px; padding: 15px; margin: 15px 0; font-size: 0.9rem; line-height: 1.5; color: #555; }
-        textarea { width: 100%; height: 180px; border: 1px solid #eee; border-radius: 10px; padding: 10px; resize: none; box-sizing: border-box; }
-
-        /* 버튼 스타일 */
-        button { background: #ff6b6b; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #ee5253; }
-        .save-btn { width: 100%; margin-top: 15px; background: #333; }
-        .save-btn:hover { background: #000; }
-
-        /* 아이콘 */
-        .tomato-icon { font-size: 60px; margin: 10px; }
-        .big-tomato { font-size: 80px; text-align: right; margin-top: 10px; }
-
-        /* 7열 달력 그리드 스타일 */
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr); /* 7열 확실히 고정 */
-            gap: 2px;
-            border-top: 1px solid #ddd;
-            border-left: 1px solid #ddd;
-            background-color: #ddd; /* 선처럼 보이게 배경색 살짝 추가 */
-        }
-
-        /* 날짜 칸 스타일 */
-        .day-cell {
-            aspect-ratio: 1 / 1; /* 칸을 정사각형으로! */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 5px;
-            cursor: pointer;
-            background: white;
-            font-size: 12px;
-        }
-
-        .day-cell:hover { background-color: #f9f9f9; }
-
-        /* 토마토 아이콘 스타일 */
-        .tomato-icon {
-           width: 30px; /* 아이콘 크기 고정 */
-           display: block;
-           margin: 5px auto 0; /* 날짜 숫자 아래에 중앙 정렬 */
-           cursor: pointer;
-        }
-
-        /* 달력 전체 컨테이너 */
-        .calendar-container {
-            width: 350px; /* 달력 너비 고정 */
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            margin: 20px auto; /* 가운데 정렬 */
-        }
-
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr); /* 7열 확실히 고정 */
-            gap: 2px;
-        }
-
-        .day-cell {
-            aspect-ratio: 1 / 1; /* 칸을 정사각형으로! */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            font-size: 12px;
-        }
-
-        /* 화면 전체를 가로로 나누는 설정 */
-        .main-container {
-            display: flex;
-            flex-direction: row; /* 가로 배치 */
-            gap: 30px;
-            padding: 20px;
-            align-items: flex-start;
-        }
-
-       .calendar-section {
-           flex: 2; /* 달력을 2배 더 넓게 */
-           background: #fff;
-           padding: 20px;
-           border-radius: 10px;
-        }
-
-        .detail-section {
-            flex: 1; /* 정보창은 1배 비율 */
-            min-width: 300px;
-        }
-
-        /* 7열 요일 라벨 스타일 */
-        .day-labels {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        /* 기획안처럼 달력 칸을 크게 */
-        .day-cell {
-            min-height: 100px; /* 높이를 키워서 기획안 느낌 내기 */
-            background: white;
-            border: 1px solid #eee;
-            padding: 5px;
-        }
-
-        /* 날짜 클릭 시 나타날 Todo 팝업 스타일 */
-        .todo-popup {
-            position: absolute;
-            top: 40px;      /* 날짜 숫자 아래에 위치 */
-            left: 10px;
-            z-index: 100;   /* 다른 요소보다 위에 보이게 */
-            width: 160px;
-            background: white;
-            border: 2px solid #333; /* 기획안처럼 진한 테두리 */
-            padding: 10px;
-            box-shadow: 4px 4px 0px #000; /* 딱딱한 그림자 효과 */
-            border-radius: 4px;
-        }
-
-        .todo-popup ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            font-size: 0.85em;
-            text-align: left;
-        }
-
-        .todo-popup li {
-            margin-bottom: 5px;
-            border-bottom: 1px dotted #ccc;
-        }
-
-        /* 날짜 클릭 시 나타날 팝업창 스타일 */
-        .todo-popup {
-            position: absolute;
-            top: 30px;
-            left: 5px;
-            z-index: 100;
-            width: 180px;
-            background: white;
-            border: 2px solid #333;
-            padding: 10px;
-            box-shadow: 4px 4px 0px #000; /* 기획안 특유의 강한 그림자 */
-            border-radius: 8px;
-            text-align: left;
-        }
-
-        .popup-input-group {
-            display: flex;
-            gap: 5px;
-            margin-top: 10px;
-        }
-
-        .popup-input-group input {
-            width: 70%;
-            font-size: 12px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>캘린더 - Toti</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+    :root {
+      --tomato: #e53935; --tomato-light: #ef9a9a; --tomato-pale: #fff8f7;
+      --bg: #fff3f0; --card: #ffffff; --text: #2d2d2d; --text-sub: #888;
+      --border: #f5c6c0; --shadow: rgba(229,57,53,0.12);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Nunito, sans-serif; background: var(--bg); min-height: 100vh; padding: 24px 16px; color: var(--text); }
+    .page-wrap { max-width: 480px; margin: 0 auto; }
+    .top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .back-btn { background: none; border: none; font-size: 1.3em; cursor: pointer; color: var(--tomato); }
+    h1 { font-size: 1.3em; font-weight: 800; color: var(--tomato); }
+    .card { background: var(--card); border-radius: 18px; box-shadow: 0 4px 16px var(--shadow); padding: 20px; margin-bottom: 16px; }
+    /* 달력 헤더 */
+    .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .cal-nav button { background: none; border: none; font-size: 1.2em; cursor: pointer; color: var(--tomato); padding: 4px 8px; border-radius: 8px; }
+    .cal-nav button:hover { background: var(--tomato-pale); }
+    .cal-title { font-weight: 800; font-size: 1.05em; }
+    /* 달력 그리드 */
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-dow { text-align: center; font-size: 0.7em; color: var(--text-sub); padding-bottom: 6px; font-weight: 700; }
+    .cal-cell {
+      aspect-ratio: 1; border-radius: 10px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; font-size: 0.85em; cursor: pointer;
+      border: 1.5px solid transparent; transition: border-color .15s;
+      position: relative; gap: 2px;
+    }
+    .cal-cell:hover { border-color: var(--tomato-light); }
+    .cal-cell.today { font-weight: 800; border-color: var(--tomato); }
+    .cal-cell.achieved { background: #e8f5e9; }
+    .cal-cell.not-achieved { background: #ffebee; }
+    .cal-cell.no-record { background: #fafafa; }
+    .cal-cell.future { background: transparent; color: #ccc; cursor: default; }
+    .cal-cell.empty { background: transparent; cursor: default; }
+    .cal-cell.selected { border-color: var(--tomato) !important; box-shadow: 0 0 0 2px var(--tomato-light); }
+    .todo-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--tomato); }
+    /* 범례 */
+    .legend { display: flex; gap: 12px; font-size: 0.72em; color: var(--text-sub); margin-top: 10px; flex-wrap: wrap; }
+    .legend span { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    /* 날짜 상세 패널 */
+    .detail-card { display: none; }
+    .detail-date { font-weight: 800; font-size: 1em; margin-bottom: 12px; color: var(--tomato); }
+    .todo-list { list-style: none; padding: 0; margin-bottom: 12px; }
+    .todo-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+    .todo-list li:last-child { border-bottom: none; }
+    .todo-list input[type=checkbox] { accent-color: var(--tomato); width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+    .todo-list .del-btn { background: none; border: none; color: var(--text-sub); cursor: pointer; font-size: 1em; margin-left: auto; }
+    .todo-list .done-text { text-decoration: line-through; color: var(--text-sub); }
+    .add-row { display: flex; gap: 8px; }
+    .add-row input { flex: 1; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.9em; font-family: Nunito, sans-serif; background: var(--tomato-pale); }
+    .add-row button { padding: 7px 14px; background: var(--tomato); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; }
+    .empty-msg { color: var(--text-sub); font-size: 0.85em; padding: 8px 0; }
+  </style>
 </head>
-
 <body>
-    <div class="main-container">
-        <div class="calendar-section">
-            <div class="calendar-header" style="display: flex; justify-content: space-between; align-items: center;">
-               <h1 id="monthDisplay">3 MAR</h1>
-               <button onclick="location.href='/timer'" style="background: #ff6b6b; color: white; padding: 10px 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold;">
-                   ⏱ 타이머로 돌아가기
-                </button>
-            </div>
+<div class="page-wrap">
+  <div class="top-bar">
+    <button class="back-btn" onclick="history.back()">←</button>
+    <h1>학습 캘린더</h1>
+  </div>
 
-            <div class="day-labels">
-                <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
-            </div>
-            <div id="calendarGrid" class="calendar-grid">
-                </div>
-        </div>
+  <div class="card">
+    <div class="cal-nav">
+      <button id="prev-btn">&#8592;</button>
+      <span class="cal-title" id="cal-title"></span>
+      <button id="next-btn">&#8594;</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="legend" style="margin-top:12px;">
+      <span><div class="dot" style="background:#e8f5e9;border:1px solid #a5d6a7;"></div> 목표 달성</span>
+      <span><div class="dot" style="background:#ffebee;border:1px solid #ef9a9a;"></div> 미달성</span>
+      <span><div class="dot" style="background:#fafafa;border:1px solid #eee;"></div> 기록 없음</span>
+      <span><div class="dot" style="background:white;border:1.5px solid var(--tomato);"></div> 오늘</span>
+    </div>
+  </div>
 
-        <div class="detail-section">
-            <div class="memo-box card">
-                <h3>메모 in here</h3>
-                
-                <div class="ai-message" style="background: #fdf2f2; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #ffcfcf;">
-                    <strong style="color: #e74c3c;">🤖 AI 가이드:</strong><br>
-                    <span style="font-size: 0.9em; line-height: 1.4;">
-                        "동제님, 오늘의 학습 목표를 달성하면 <br>골든 토티를 받을 수 있어요! 화이팅!"
-                    </span>
-                </div>
+  <div class="card detail-card" id="detail-card">
+    <div class="detail-date" id="detail-date"></div>
+    <ul class="todo-list" id="todo-list"><li class="empty-msg">할 일이 없습니다.</li></ul>
+    <div class="add-row">
+      <input type="text" id="todo-input" placeholder="할 일 추가..." maxlength="80">
+      <button id="todo-add-btn">+</button>
+    </div>
+  </div>
+</div>
 
-                <input type="text" id="memo-title" placeholder="학습 주제(title)">
-                <textarea id="memo-content" placeholder="공부한 내용(content)"></textarea>
-                <button class="save-btn" onclick="saveMemo()">📝 메모 저장하기</button>
-                <div class="big-tomato">🍅</div>
-            </div>
-        </div>
-    </div> </body>
+<script>
+  const TODAY = new Date().toISOString().slice(0, 10);
+  let curYear = parseInt(TODAY.slice(0, 4));
+  let curMonth = parseInt(TODAY.slice(5, 7));
+  let selectedDate = null;
+  let achieveData = {};
 
-    <script>
-    // 1. 날짜 초기화 (오늘 날짜)
-    function setDefaultDate() {
-        const today = new Date().toISOString().split('T')[0];
-        const dateInput = document.getElementById('current-date');
-        if (dateInput) dateInput.value = today;
+  // ===== 인증 유틸 =====
+  async function tryRefresh() {
+    const rt = localStorage.getItem("refresh_token");
+    if (!rt) return false;
+    try {
+      const res = await fetch("/users/refresh", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ refresh_token: rt })
+      });
+      if (!res.ok) { localStorage.removeItem("access_token"); localStorage.removeItem("refresh_token"); return false; }
+      localStorage.setItem("access_token", (await res.json()).access_token);
+      return true;
+    } catch { return false; }
+  }
+
+  async function authFetch(url, options = {}) {
+    const token = localStorage.getItem("access_token");
+    const headers = { ...(options.headers || {}), "Authorization": `Bearer ${token}` };
+    let res = await fetch(url, { ...options, headers });
+    if (res.status === 401) {
+      if (await tryRefresh()) {
+        const h2 = { ...(options.headers || {}), "Authorization": `Bearer ${localStorage.getItem("access_token")}` };
+        res = await fetch(url, { ...options, headers: h2 });
+      } else {
+        alert("로그인이 필요합니다."); window.location.href = "/users/login-page";
+      }
     }
+    return res;
+  }
 
-    // 2. 달력 그리기 (날짜 클릭 시 팝업 포함)
-    async function loadMonthlyCalendar(year, month) {
-        try {
-            const response = await fetch(`http://127.0.0.1:8000/monthly/${year}/${month}`);
-            const monthlyData = await response.json();
-            const grid = document.getElementById('calendarGrid');
-            if (!grid) return;
-            grid.innerHTML = ''; 
+  // ===== 달력 렌더링 =====
+  async function loadCalendar(year, month) {
+    document.getElementById("cal-title").textContent = `${year}년 ${month}월`;
+    try {
+      const res = await authFetch(`/stats/achievement?year=${year}&month=${month}`);
+      achieveData = res.ok ? await res.json() : {};
+    } catch { achieveData = {}; }
 
-            const lastDay = new Date(year, month, 0).getDate();
+    const DAYS = ["일","월","화","수","목","금","토"];
+    const firstDow = new Date(year, month - 1, 1).getDay();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const grid = document.getElementById("cal-grid");
+    grid.innerHTML = DAYS.map(d => `<div class="cal-dow">${d}</div>`).join("");
 
-            for (let i = 1; i <= lastDay; i++) {
-                const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
-                const hasTodo = monthlyData.some(t => t.date === dateStr);
-                const tomatoHtml = hasTodo ? `<span style="font-size: 25px;">🍅</span>` : '';
+    for (let i = 0; i < firstDow; i++) grid.innerHTML += `<div class="cal-cell empty"></div>`;
 
-                grid.innerHTML += `
-                    <div class="day-cell" onclick="openTodoPopup('${dateStr}', event)" style="position: relative; cursor: pointer;">
-                        <span>${i}</span>
-                        ${tomatoHtml}
-                        <div id="popup-${dateStr}" class="todo-popup" style="display: none; position: absolute; top: 40px; left: 0; z-index: 100; background: white; border: 2px solid #333; padding: 10px; width: 180px; box-shadow: 4px 4px 0px #000;" onclick="event.stopPropagation()">
-                            <strong style="font-size: 13px;">일자 선택시 todo</strong>
-                            <ul id="items-${dateStr}" style="font-size: 12px; margin: 8px 0; padding-left: 20px; list-style: disc;"></ul>
-                            <div style="display:flex; gap:5px;">
-                                <input type="text" id="input-${dateStr}" placeholder="할 일 추가" style="width:70%; font-size:11px; padding: 2px;">
-                                <button onclick="addTodoFromPopup('${dateStr}')" style="font-size: 11px; cursor: pointer;">추가</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-       } catch (e) {
-           console.error("달력 로드 실패:", e);
-       }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const ds = `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+      let cls = "no-record";
+      if (ds > TODAY) cls = "future";
+      else if (ds in achieveData) cls = achieveData[ds] ? "achieved" : "not-achieved";
+      if (ds === TODAY) cls += " today";
+      if (ds === selectedDate) cls += " selected";
+
+      const cell = document.createElement("div");
+      cell.className = `cal-cell ${cls}`;
+      cell.innerHTML = `<span>${day}</span>`;
+      if (ds <= TODAY && ds in achieveData) cell.innerHTML += `<div class="todo-dot"></div>`;
+      if (ds <= TODAY) cell.addEventListener("click", () => openDetail(ds));
+      grid.appendChild(cell);
     }
+  }
 
-    // 3. 팝업 열기 및 해당 날짜 Todo 로드
-    async function openTodoPopup(dateStr, event) {
-        if (event) event.stopPropagation(); // 칸 클릭 시 이벤트 전파 방지
-    
-        // 이미 열려있는 모든 팝업 닫기
-        document.querySelectorAll('.todo-popup').forEach(p => p.style.display = 'none');
-    
-       const popup = document.getElementById(`popup-${dateStr}`);
-       const list = document.getElementById(`items-${dateStr}`);
-    
-       // 팝업 보이기
-       popup.style.display = 'block';
+  // ===== 날짜 상세 =====
+  async function openDetail(dateStr) {
+    selectedDate = dateStr;
+    document.getElementById("detail-date").textContent = dateStr.replace(/-/g, ". ") + " 할 일";
+    document.getElementById("detail-card").style.display = "block";
+    await loadTodos(dateStr);
+    // 선택 상태 반영
+    document.querySelectorAll(".cal-cell.selected").forEach(c => c.classList.remove("selected"));
+    const dayNum = parseInt(dateStr.slice(8));
+    const cells = document.querySelectorAll(".cal-cell:not(.empty)");
+    const firstDow = new Date(curYear, curMonth - 1, 1).getDay();
+    const targetIdx = firstDow + dayNum - 1;
+    const allCells = document.querySelectorAll(".cal-cell");
+    if (allCells[targetIdx]) allCells[targetIdx].classList.add("selected");
+  }
 
-       // 해당 날짜 Todo 목록 가져오기
-       try {
-           const res = await fetch(`http://127.0.0.1:8000/daily/${dateStr}`);
-           const data = await res.json();
-           list.innerHTML = data.todos.map(t => `<li>${t.content}</li>`).join('') || '<li>일정 없음</li>';
-       } catch (e) {
-           list.innerHTML = '<li>로드 실패</li>';
-       }
-    }
+  async function loadTodos(dateStr) {
+    const list = document.getElementById("todo-list");
+    list.innerHTML = "";
+    try {
+      const res = await authFetch(`/timer/api/todos?target_date=${dateStr}`);
+      const todos = await res.json();
+      if (todos.length === 0) {
+        list.innerHTML = `<li class="empty-msg">할 일이 없습니다.</li>`;
+        return;
+      }
+      todos.forEach(t => appendTodoItem(t, dateStr));
+    } catch { list.innerHTML = `<li class="empty-msg">불러오기 실패</li>`; }
+  }
 
-    // 4. 팝업에서 Todo 추가하기
-    async function addTodoFromPopup(dateStr) {
-        const input = document.getElementById(`input-${dateStr}`);
-        const content = input.value;
-        if (!content) return;
+  function appendTodoItem(t, dateStr) {
+    const list = document.getElementById("todo-list");
+    const emptyMsg = list.querySelector(".empty-msg");
+    if (emptyMsg) emptyMsg.remove();
 
-        try {
-            await fetch(`http://127.0.0.1:8000/todo?content=${encodeURIComponent(content)}&user_id=1&date=${dateStr}`, { method: 'POST' });
-            input.value = ''; // 입력창 비우기
-            openTodoPopup(dateStr); // 해당 날짜 팝업 리스트 새로고침
-            loadMonthlyCalendar(2026, 3); // 달력 토마토 아이콘 업데이트
-        } catch (e) {
-            alert("추가 실패!");
-        }
-    }
+    const li = document.createElement("li");
+    li.dataset.id = t.id;
+    li.innerHTML = `
+      <input type="checkbox" ${t.is_completed ? "checked" : ""}>
+      <span class="${t.is_completed ? "done-text" : ""}">${t.content}</span>
+      <button class="del-btn">✕</button>
+    `;
+    li.querySelector("input").addEventListener("change", async (e) => {
+      await authFetch(`/timer/api/todos/${t.id}`, {
+        method: "PUT", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ is_completed: e.target.checked })
+      });
+      li.querySelector("span").className = e.target.checked ? "done-text" : "";
+    });
+    li.querySelector(".del-btn").addEventListener("click", async () => {
+      await authFetch(`/timer/api/todos/${t.id}`, { method: "DELETE" });
+      li.remove();
+      if (!list.querySelector("li:not(.empty-msg)")) {
+        list.innerHTML = `<li class="empty-msg">할 일이 없습니다.</li>`;
+      }
+    });
+    list.appendChild(li);
+  }
 
-    // 5. 페이지 로드 시 실행
-    window.onload = () => {
-        loadMonthlyCalendar(2026, 3);
-    
-        // 바탕화면 클릭하면 팝업 닫기
-        document.addEventListener('click', () => {
-            document.querySelectorAll('.todo-popup').forEach(p => p.style.display = 'none');
-        });
-    };
+  document.getElementById("todo-add-btn").addEventListener("click", async () => {
+    if (!selectedDate) return;
+    const input = document.getElementById("todo-input");
+    const content = input.value.trim();
+    if (!content) return;
+    try {
+      const res = await authFetch("/timer/api/todos", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ content, target_date: selectedDate })
+      });
+      appendTodoItem(await res.json(), selectedDate);
+      input.value = "";
+    } catch { alert("추가 실패"); }
+  });
 
-    async function saveMemo() {
-        const titleVal = document.getElementById('memo-title').value;
-        const contentVal = document.getElementById('memo-content').value;
-    
-        // 오늘 날짜 생성 (YYYY-MM-DD 형식) - 서버가 date를 필수로 요구함!
-        const today = new Date().toISOString().split('T')[0];
+  document.getElementById("todo-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("todo-add-btn").click();
+  });
 
-        if (!titleVal || !contentVal) {
-            alert("학습 주제와 내용을 모두 입력해주세요! 🍅");
-            return;
-        }
+  // ===== 월 이동 =====
+  document.getElementById("prev-btn").addEventListener("click", () => {
+    curMonth--; if (curMonth < 1) { curMonth = 12; curYear--; }
+    loadCalendar(curYear, curMonth);
+  });
+  document.getElementById("next-btn").addEventListener("click", () => {
+    curMonth++; if (curMonth > 12) { curMonth = 1; curYear++; }
+    loadCalendar(curYear, curMonth);
+  });
 
-        try {
-            // ✅ 핵심 수정: 데이터를 주소창(Query Parameter)에 담아서 보냅니다.
-            const url = `http://127.0.0.1:8000/memo?title=${encodeURIComponent(titleVal)}&content=${encodeURIComponent(contentVal)}&date=${today}&user_id=1`;
-        
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'accept': 'application/json' }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                // 🤖 AI 가이드 문구 업데이트
-                document.querySelector('.ai-message span').innerText = data.ai_advice || "저장 성공!";
-                alert("드디어 저장 성공! 🍅");
-            
-                document.getElementById('memo-title').value = '';
-                document.getElementById('memo-content').value = '';
-            } else {
-                const errorDetail = await response.text();
-                console.error("서버 거절 이유:", errorDetail);
-                alert("저장 실패 (에러코드: " + response.status + ")");
-            }
-        } catch (error) {
-            console.error("연결 오류:", error);
-        }
-    }
+  // ===== 초기화 =====
+  const token = localStorage.getItem("access_token");
+  if (!token) { window.location.href = "/users/login-page"; }
+  else { loadCalendar(curYear, curMonth); }
 </script>
 </body>
 </html>
