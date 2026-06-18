@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,7 @@ import os
 import secrets
 
 from db import get_db, User, RefreshToken
+from limiter import limiter
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -159,7 +160,8 @@ async def settings_page():
 
 # 회원가입
 @router.post("/signup", response_model=SignupResponse)
-async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def signup(request: Request, body: SignupRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).filter(User.email == body.email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already exists")
@@ -186,7 +188,8 @@ async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
 
 # 로그인
 @router.post("/login", response_model=LoginResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).filter(User.email == body.email))
     user = result.scalar_one_or_none()
 
@@ -282,3 +285,20 @@ async def change_password(
     user.password = hash_password(body.new_password)
     await db.commit()
     return SettingsResponse(message="password updated")
+
+
+# 회원 탈퇴
+class DeleteAccountRequest(BaseModel):
+    password: str
+
+@router.delete("/me")
+async def delete_account(
+    body: DeleteAccountRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if not verify_password(body.password, user.password):
+        raise HTTPException(status_code=400, detail="비밀번호가 올바르지 않습니다.")
+    await db.delete(user)
+    await db.commit()
+    return {"message": "account deleted"}

@@ -1,11 +1,10 @@
 from contextlib import asynccontextmanager
 import os
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
@@ -17,24 +16,35 @@ import study_room
 import timer
 import user
 import bgm_import
+from limiter import limiter
 
 _SECRET_KEY = os.getenv("SECRET_KEY")
 if not _SECRET_KEY:
     raise RuntimeError("SECRET_KEY 환경변수가 설정되지 않았습니다. .env 파일을 확인하세요.")
 
 
-def _get_real_ip(request: Request) -> str:
-    return request.headers.get("X-Real-IP") or get_remote_address(request)
-
-
-limiter = Limiter(key_func=_get_real_ip, default_limits=["120/minute"])
-
-
-# 기존 테이블에 새 컬럼을 안전하게 추가 (IF NOT EXISTS → 기존 데이터 보존)
+# 기존 테이블 컬럼 추가 + 외래키 CASCADE 보강
 _MIGRATIONS = [
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS level          INTEGER NOT NULL DEFAULT 1",
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS streak         INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS level           INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS streak          INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_study_date DATE",
+    # ondelete CASCADE 보강 (기존 FK 삭제 후 재생성)
+    "ALTER TABLE memos            DROP CONSTRAINT IF EXISTS memos_user_id_fkey",
+    "ALTER TABLE memos            ADD  CONSTRAINT memos_user_id_fkey            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+    "ALTER TABLE todos             DROP CONSTRAINT IF EXISTS todos_user_id_fkey",
+    "ALTER TABLE todos             ADD  CONSTRAINT todos_user_id_fkey             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+    "ALTER TABLE study_records     DROP CONSTRAINT IF EXISTS study_records_user_id_fkey",
+    "ALTER TABLE study_records     ADD  CONSTRAINT study_records_user_id_fkey     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+    "ALTER TABLE pomodoro_sessions DROP CONSTRAINT IF EXISTS pomodoro_sessions_user_id_fkey",
+    "ALTER TABLE pomodoro_sessions ADD  CONSTRAINT pomodoro_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+    "ALTER TABLE room_members      DROP CONSTRAINT IF EXISTS room_members_user_id_fkey",
+    "ALTER TABLE room_members      ADD  CONSTRAINT room_members_user_id_fkey      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+    "ALTER TABLE study_rooms       DROP CONSTRAINT IF EXISTS study_rooms_host_user_id_fkey",
+    "ALTER TABLE study_rooms       ADD  CONSTRAINT study_rooms_host_user_id_fkey  FOREIGN KEY (host_user_id) REFERENCES users(id) ON DELETE SET NULL",
+    "ALTER TABLE ai_logs           DROP CONSTRAINT IF EXISTS ai_logs_user_id_fkey",
+    "ALTER TABLE ai_logs           ADD  CONSTRAINT ai_logs_user_id_fkey           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+    "ALTER TABLE user_track_setting DROP CONSTRAINT IF EXISTS user_track_setting_user_id_fkey",
+    "ALTER TABLE user_track_setting ADD  CONSTRAINT user_track_setting_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
 ]
 
 

@@ -9,7 +9,7 @@ from datetime import date, datetime
 from pydantic import BaseModel
 from typing import Optional, List
 import os
-from db import get_db, User, Memo, PomodoroSession, SessionDetail
+from db import get_db, User, Memo, PomodoroSession, SessionDetail, Todo
 from db import Track, UserTrackSetting
 from user import get_current_user, calc_level
 
@@ -27,6 +27,12 @@ class MemoWrite(BaseModel):
     id: Optional[int] = None
     title: str
     content: str
+
+class TodoCreate(BaseModel):
+    content: str
+
+class TodoUpdate(BaseModel):
+    is_completed: bool
 
 class TrackCheckUpdate(BaseModel):
     is_checked: bool
@@ -334,6 +340,46 @@ async def update_track_order(body: List[TrackOrderUpdate],
 
     await db.commit()
     return {"message": "순서 업데이트 완료", "updated": [item.model_dump() for item in body]}
+
+
+# ==================== Todo CRUD ====================
+
+@router.get("/api/todos")
+async def get_todos(current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Todo).where(Todo.user_id == current_user.id, Todo.date == date.today())
+        .order_by(Todo.created_at)
+    )
+    todos = result.scalars().all()
+    return [{"id": t.id, "content": t.content, "is_completed": t.is_completed} for t in todos]
+
+
+@router.post("/api/todos", status_code=201)
+async def create_todo(body: TodoCreate, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    todo = Todo(user_id=current_user.id, date=date.today(), content=body.content)
+    db.add(todo)
+    await db.commit()
+    await db.refresh(todo)
+    return {"id": todo.id, "content": todo.content, "is_completed": todo.is_completed}
+
+
+@router.put("/api/todos/{todo_id}")
+async def update_todo(todo_id: int, body: TodoUpdate, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    todo = (await db.execute(select(Todo).where(Todo.id == todo_id, Todo.user_id == current_user.id))).scalar_one_or_none()
+    if not todo:
+        raise HTTPException(status_code=404, detail="Todo를 찾을 수 없습니다.")
+    todo.is_completed = body.is_completed
+    await db.commit()
+    return {"id": todo.id, "is_completed": todo.is_completed}
+
+
+@router.delete("/api/todos/{todo_id}", status_code=204)
+async def delete_todo(todo_id: int, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    todo = (await db.execute(select(Todo).where(Todo.id == todo_id, Todo.user_id == current_user.id))).scalar_one_or_none()
+    if not todo:
+        raise HTTPException(status_code=404, detail="Todo를 찾을 수 없습니다.")
+    await db.delete(todo)
+    await db.commit()
 
 
 # 오늘 공부한 사람 수 (소셜 지표)

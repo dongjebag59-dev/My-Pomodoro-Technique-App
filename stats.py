@@ -14,6 +14,7 @@ stats_router = APIRouter(prefix="/stats")
 class SessionRequest(BaseModel):
     total_minutes: int
     completed_sessions: int
+    exp: int = 0  # 이 세션에서 획득한 경험치 (timer.py의 /api/session-end를 대체)
 
 # 세션 저장
 @router.post("/sessions")
@@ -45,6 +46,9 @@ async def create_session(
         db.add(record)
 
     record.goal_achieved = (record.total_minutes >= current_user.goal_minutes)
+
+    # 경험치 + 레벨 (한 세션 최대 500 캡)
+    current_user.exp = (current_user.exp or 0) + max(0, min(body.exp, 500))
 
     # 스트릭 계산
     yesterday = today - timedelta(days=1)

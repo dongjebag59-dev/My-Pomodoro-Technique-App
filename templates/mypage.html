@@ -359,6 +359,7 @@
     <div class="btn-bottom-group">
       <button class="btn-timer" id="timer-bottom-btn">타이머로 돌아가기</button>
       <button class="btn-logout" id="logout-btn">로그아웃</button>
+      <button class="btn-logout" id="delete-account-btn" style="background:#ffcdd2; color:#b71c1c; margin-top:6px;">회원 탈퇴</button>
     </div>
   </div>
 
@@ -960,12 +961,26 @@
       });
     }
 
-    // 슬럼프 감지
+    // 슬럼프 감지 (오늘 날짜 기준 localStorage 캐싱 — 하루 1회만 API 호출)
     async function checkSlump() {
+      const today = new Date().toISOString().slice(0, 10);
+      const cached = localStorage.getItem("slump_cache");
+      if (cached) {
+        const { date: d, slump, message } = JSON.parse(cached);
+        if (d === today) {
+          if (slump && message) {
+            const banner = document.getElementById("slump-banner");
+            banner.textContent = message;
+            banner.style.display = "block";
+          }
+          return;
+        }
+      }
       try {
         const res = await authFetch("/ai_service/slump-check");
         if (!res.ok) return;
         const data = await res.json();
+        localStorage.setItem("slump_cache", JSON.stringify({ date: today, slump: data.slump, message: data.message || "" }));
         if (data.slump && data.message) {
           const banner = document.getElementById("slump-banner");
           banner.textContent = data.message;
@@ -975,11 +990,36 @@
     }
     checkSlump();
 
+    // 회원 탈퇴
+    document.getElementById("delete-account-btn").addEventListener("click", async () => {
+      if (!confirm("정말 탈퇴하시겠습니까?\n모든 데이터가 삭제되며 복구할 수 없습니다.")) return;
+      const pw = prompt("비밀번호를 입력해주세요:");
+      if (!pw) return;
+      try {
+        const res = await authFetch("/users/me", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: pw })
+        });
+        if (res.ok) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          localStorage.removeItem("slump_cache");
+          alert("탈퇴가 완료되었습니다.");
+          window.location.href = "/users/login-page";
+        } else {
+          const err = await res.json();
+          alert(err.detail || "탈퇴에 실패했습니다.");
+        }
+      } catch (_) { alert("서버와 연결할 수 없습니다."); }
+    });
+
     document.getElementById("logout-btn").addEventListener("click", async () => {
       const rt = localStorage.getItem("refresh_token");
       if (rt) await fetch("/users/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: rt }) }).catch(() => {});
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
+      localStorage.removeItem("slump_cache");
       window.location.href = "/users/login-page";
     });
   </script>

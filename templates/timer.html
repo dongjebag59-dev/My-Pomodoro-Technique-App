@@ -936,6 +936,20 @@
   <!-- 벚꽃 컨테이너 -->
   <div id="cherry-blossom-container"></div>
 
+  <!-- 할 일 박스 -->
+  <div id="todo-box" class="memo-box" style="top:20px; left:340px;">
+    <div id="todo-header" class="memo-header">
+      오늘 할 일
+      <button id="todo-close-btn" style="background:none;border:none;color:white;font-size:1.1em;cursor:pointer;">✕</button>
+    </div>
+    <div style="padding:10px 12px; display:flex; gap:6px;">
+      <input id="todo-input" type="text" placeholder="할 일 추가..." maxlength="80"
+        style="flex:1; padding:5px 8px; border:1.5px solid var(--border); border-radius:8px; font-size:0.9em; font-family:Nunito,sans-serif; background:var(--tomato-pale);">
+      <button id="todo-add-btn" style="padding:5px 10px; background:var(--tomato); color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.9em;">+</button>
+    </div>
+    <div id="todo-list" style="overflow-y:auto; max-height:300px; padding:0 12px 10px;"></div>
+  </div>
+
   <!-- 메모 관련 -->
   <div id="memo-box" class="memo-box">
     <div id="memo-header" class="memo-header">
@@ -1063,8 +1077,15 @@
     <!-- 메모 버튼 -->
     <button class="circle-btn" id="memo-btn" title="메모">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <path d="M3 4v16h18V4H3zm16 14H5V6h14v12zM7 
+        <path d="M3 4v16h18V4H3zm16 14H5V6h14v12zM7
                 8h10v2H7V8zm0 4h10v2H7v-2z"/>
+      </svg>
+    </button>
+
+    <!-- 할 일 버튼 -->
+    <button class="circle-btn" id="todo-btn" title="할 일">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M3 5h2V3H3v2zm0 8h2v-2H3v2zm0 8h2v-2H3v2zm4-16v2h14V5H7zm0 10h14v-2H7v2zm0 8h14v-2H7v2z"/>
       </svg>
     </button>
 
@@ -1549,6 +1570,87 @@ async function loadMemos() {
     const memoToggleBtn = document.getElementById("memo-btn");
     const memoBox = document.getElementById("memo-box");
 
+    // ==================== 할 일 (Todo) ====================
+    const todoBox     = document.getElementById("todo-box");
+    const todoToggle  = document.getElementById("todo-btn");
+    const todoInput   = document.getElementById("todo-input");
+    const todoAddBtn  = document.getElementById("todo-add-btn");
+    const todoList    = document.getElementById("todo-list");
+    const todoCloseBtn= document.getElementById("todo-close-btn");
+
+    function renderTodo(todo) {
+      const item = document.createElement("div");
+      item.dataset.id = todo.id;
+      item.style.cssText = "display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);";
+      item.innerHTML = `
+        <input type="checkbox" ${todo.is_completed ? "checked" : ""}
+          style="cursor:pointer;accent-color:var(--tomato);width:16px;height:16px;">
+        <span style="flex:1;font-size:0.9em;${todo.is_completed ? "text-decoration:line-through;color:var(--text-sub);" : ""}">${todo.content}</span>
+        <button data-del="${todo.id}" style="background:none;border:none;color:var(--text-sub);cursor:pointer;font-size:1em;">✕</button>
+      `;
+      item.querySelector("input").addEventListener("change", async (e) => {
+        await authFetch(`/timer/api/todos/${todo.id}`, {
+          method: "PUT", headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ is_completed: e.target.checked })
+        });
+        item.querySelector("span").style.textDecoration = e.target.checked ? "line-through" : "";
+        item.querySelector("span").style.color = e.target.checked ? "var(--text-sub)" : "";
+      });
+      item.querySelector("button[data-del]").addEventListener("click", async () => {
+        await authFetch(`/timer/api/todos/${todo.id}`, { method: "DELETE" });
+        item.remove();
+      });
+      todoList.appendChild(item);
+    }
+
+    async function loadTodos() {
+      todoList.innerHTML = "";
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) return;
+        const todos = await (await authFetch("/timer/api/todos")).json();
+        todos.forEach(renderTodo);
+      } catch (_) {}
+    }
+
+    todoToggle.addEventListener("click", async () => {
+      const visible = todoBox.style.display === "block";
+      todoBox.style.display = visible ? "none" : "block";
+      if (!visible) await loadTodos();
+    });
+
+    todoCloseBtn.addEventListener("click", () => { todoBox.style.display = "none"; });
+
+    todoAddBtn.addEventListener("click", async () => {
+      const content = todoInput.value.trim();
+      if (!content) return;
+      const token = localStorage.getItem("access_token");
+      if (!token) { alert("로그인이 필요합니다."); return; }
+      try {
+        const todo = await (await authFetch("/timer/api/todos", {
+          method: "POST", headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ content })
+        })).json();
+        renderTodo(todo);
+        todoInput.value = "";
+      } catch (_) {}
+    });
+
+    todoInput.addEventListener("keydown", (e) => { if (e.key === "Enter") todoAddBtn.click(); });
+
+    // todo-box 드래그
+    const todoHeader = document.getElementById("todo-header");
+    let _tdOffX = 0, _tdOffY = 0, _tdDrag = false;
+    todoHeader.addEventListener("mousedown", (e) => {
+      _tdDrag = true; _tdOffX = e.clientX - todoBox.offsetLeft; _tdOffY = e.clientY - todoBox.offsetTop;
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!_tdDrag) return;
+      todoBox.style.left = (e.clientX - _tdOffX) + "px";
+      todoBox.style.top  = (e.clientY - _tdOffY) + "px";
+    });
+    document.addEventListener("mouseup", () => { _tdDrag = false; });
+
     // 공통 로그인 체크 함수
     async function ensureLogin() {
       try {
@@ -1879,27 +1981,16 @@ async function updateLoginButton() {
 
 async function sendSessionEnd(startedAt, endedAt, duration, exp) {
   try {
-    await authFetch("/timer/api/session-end", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        started_at: startedAt.toISOString(),
-        ended_at: endedAt.toISOString(),
-        duration: duration,
-        exp: exp,
-        session_type: "focus"
-      })
-    });
-
+    // /sessions 단일 호출로 통합 (StudyRecord + exp + streak + level 한번에 처리)
     await authFetch("/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         total_minutes: Number(duration),
-        completed_sessions: 1
+        completed_sessions: 1,
+        exp: Number(exp)
       })
     });
-
   } catch (err) {
     console.error("세션 종료 전송 실패", err);
   }
