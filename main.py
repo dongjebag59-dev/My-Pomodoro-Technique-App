@@ -46,6 +46,8 @@ _MIGRATIONS = [
     "ALTER TABLE ai_logs           ADD  CONSTRAINT ai_logs_user_id_fkey           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
     "ALTER TABLE user_track_setting DROP CONSTRAINT IF EXISTS user_track_setting_user_id_fkey",
     "ALTER TABLE user_track_setting ADD  CONSTRAINT user_track_setting_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+    "ALTER TABLE session_details    DROP CONSTRAINT IF EXISTS session_details_session_id_fkey",
+    "ALTER TABLE session_details    ADD  CONSTRAINT session_details_session_id_fkey    FOREIGN KEY (session_id) REFERENCES pomodoro_sessions(id) ON DELETE CASCADE",
 ]
 
 

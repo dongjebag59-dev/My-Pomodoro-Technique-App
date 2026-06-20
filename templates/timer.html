@@ -967,6 +967,7 @@
   <div class="room-body">
     <!-- 참여 전 UI -->
     <div id="room-join-ui">
+      <input type="text" class="room-input" id="room-name-input" placeholder="방 이름 (선택)" maxlength="30" style="margin-bottom:4px;">
       <button class="room-btn room-btn-primary" id="create-room-btn">방 만들기</button>
       <hr class="room-divider">
       <input type="text" class="room-input" id="room-code-input" placeholder="방 코드 입력" maxlength="6">
@@ -1160,6 +1161,7 @@
 <div class="level-streak-bar" id="level-streak-bar" style="display:none;">
   <span class="level-badge" id="level-badge">Lv.1</span>
   <span class="streak-badge" id="streak-badge">🔥 0일</span>
+  <span class="streak-badge" id="today-sessions-badge" style="background:#fff8e1;border-color:#ffcc80;color:#e65100;display:none;">🍅 0개</span>
 </div>
 
 <!-- 오늘 공부 인원 -->
@@ -1295,6 +1297,7 @@
     let isFocus = true;
     let remainingTime;
     let startedAt = null;
+    let todayCompletedSessions = 0;
 
     const focusDisplay = document.getElementById("focus-time");
     const breakDisplay = document.getElementById("break-time");
@@ -1313,13 +1316,7 @@
 
 async function loadMemos() {
   try {
-    const token = localStorage.getItem("access_token");
-
-    const res = await fetch("/timer/api/memos", {
-      headers: {
-        "Authorization": `Bearer ${token}`
-      }
-    });
+    const res = await authFetch("/timer/api/memos");
     if (!res.ok) return;
     const data = await res.json();
 
@@ -1524,8 +1521,16 @@ async function loadMemos() {
       isPaused = false;
       sendSwTimerUpdate('TIMER_STOP');
 
-      if (!startedAt) return; // 시작된 적 없으면 기록 안 함
+      if (!startedAt) return;
       sendRoomStatus("idle");
+
+      // 정상 완료 시 오늘 세션 카운터 증가
+      if (!isStoppedEarly) {
+        todayCompletedSessions++;
+        const badge = document.getElementById("today-sessions-badge");
+        badge.textContent = `🍅 ${todayCompletedSessions}개`;
+        badge.style.display = "";
+      }
       const endedAt = new Date();
 
       // duration = 집중 시간 × 횟수 (분 단위)
@@ -1811,13 +1816,10 @@ function attachMemoEvents(memoItem, isNew = true) {
         const memoId = memoItem.dataset.id;
         if (memoId) {
           try {
-            const token = localStorage.getItem("access_token");
-            const res = await fetch(`/timer/memo/${memoId}`, {
-              headers: { "Authorization": `Bearer ${token}` }
-            });
+            const res = await authFetch(`/timer/memo/${memoId}`);
             if (res.ok) {
               const memoData = await res.json();
-              body.textContent = memoData.content; // 서버에서 실제 내용 불러오기
+              body.textContent = memoData.content;
             } else {
               console.error("메모 내용 불러오기 실패", await res.text());
             }
@@ -1847,13 +1849,9 @@ function attachMemoEvents(memoItem, isNew = true) {
       body.style.display = "block";
 
       try {
-        const token = localStorage.getItem("access_token");
-        const res = await fetch("/timer/memo/write", {
+        const res = await authFetch("/timer/memo/write", {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id: memoItem.dataset.id || null,
             title: title.textContent,
@@ -1882,11 +1880,7 @@ function attachMemoEvents(memoItem, isNew = true) {
       return;
     }
     try {
-      const token = localStorage.getItem("access_token");
-      const res = await fetch(`/timer/memo/${memoId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await authFetch(`/timer/memo/${memoId}`, { method: "DELETE" });
       if (res.ok) {
         alert("메모 삭제 완료!");
         memoItem.remove();
@@ -2622,12 +2616,9 @@ function makeListSortable(list) {
         order_index: idx + 1
       }));
 
-      await fetch("/timer/tracks/order", {
+      await authFetch("/timer/tracks/order", {
         method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("access_token")}`,
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newOrder)
       });
     }
@@ -2770,6 +2761,8 @@ for (let i = 0; i < 20; i++) {
 // ==================== 스터디룸 ====================
 let roomWs = null;
 let currentRoomCode = null;
+let _wsReconnectTimer = null;
+let _wsReconnectDelay = 2000; // 초기 2초, 최대 30초
 
 function sendRoomStatus(status) {
   if (roomWs && roomWs.readyState === WebSocket.OPEN) {
@@ -2795,12 +2788,24 @@ function connectRoomWs(code) {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   roomWs = new WebSocket(`${proto}://${location.host}/room/ws/${code}?token=${token}`);
 
+  roomWs.onopen = () => {
+    _wsReconnectDelay = 2000; // 연결 성공 시 딜레이 초기화
+  };
+
   roomWs.onmessage = (e) => {
     const msg = JSON.parse(e.data);
     if (msg.members) renderMembers(msg.members);
   };
-  roomWs.onclose = () => {
+  roomWs.onclose = (e) => {
     roomWs = null;
+    // 방에 여전히 접속 중이고 의도적 종료(1000/1008/1011)가 아닌 경우 재연결
+    if (currentRoomCode && e.code !== 1000 && e.code !== 1008 && e.code !== 1011) {
+      clearTimeout(_wsReconnectTimer);
+      _wsReconnectTimer = setTimeout(() => {
+        if (currentRoomCode) connectRoomWs(currentRoomCode);
+      }, _wsReconnectDelay);
+      _wsReconnectDelay = Math.min(_wsReconnectDelay * 2, 30000); // 최대 30초 지수 백오프
+    }
   };
 }
 
@@ -2813,12 +2818,13 @@ function enterRoom(code) {
 }
 
 function leaveRoom() {
+  clearTimeout(_wsReconnectTimer);
+  currentRoomCode = null; // 먼저 null로 설정해야 onclose에서 재연결 안 함
   if (roomWs) {
     sendRoomStatus("idle");
     roomWs.close();
     roomWs = null;
   }
-  currentRoomCode = null;
   document.getElementById("room-active-ui").style.display = "none";
   document.getElementById("room-join-ui").style.display = "block";
   document.getElementById("room-member-list").innerHTML = "";
@@ -2834,14 +2840,15 @@ document.getElementById("room-btn").addEventListener("click", async () => {
 
 // 방 만들기
 document.getElementById("create-room-btn").addEventListener("click", async () => {
-  const token = localStorage.getItem("access_token");
-  const res = await fetch("/room/create", {
+  const nameVal = document.getElementById("room-name-input").value.trim() || "스터디룸";
+  const res = await authFetch("/room/create", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-    body: JSON.stringify({ name: "스터디룸" })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: nameVal })
   });
   if (!res.ok) { alert("방 생성 실패"); return; }
   const data = await res.json();
+  document.getElementById("room-name-input").value = "";
   enterRoom(data.code);
 });
 
@@ -2858,25 +2865,54 @@ document.getElementById("join-room-btn").addEventListener("click", async () => {
 document.getElementById("leave-room-btn").addEventListener("click", leaveRoom);
 
 // 공개 방 목록 조회
+function _renderRoomList(rooms) {
+  const area = document.getElementById("room-list-area");
+  area.innerHTML = "";
+  if (!rooms.length) {
+    const msg = document.createElement("div");
+    msg.style.cssText = "color:#888;font-size:0.8em;padding:4px 0;";
+    msg.textContent = "활성화된 방이 없습니다.";
+    area.appendChild(msg);
+    return;
+  }
+  rooms.forEach(r => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5c6c0;gap:6px;";
+
+    const info = document.createElement("div");
+    info.style.cssText = "min-width:0;flex:1;";
+
+    const nameEl = document.createElement("div");
+    nameEl.style.cssText = "font-size:0.82em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+    nameEl.textContent = r.name;
+
+    const metaEl = document.createElement("div");
+    metaEl.style.cssText = "font-size:0.72em;color:#888;";
+    metaEl.textContent = `${r.code} · ${r.member_count}명`;
+
+    info.appendChild(nameEl);
+    info.appendChild(metaEl);
+
+    const btn = document.createElement("button");
+    btn.style.cssText = "flex-shrink:0;padding:3px 10px;background:#e53935;color:#fff;border:none;border-radius:8px;font-size:0.78em;cursor:pointer;font-weight:700;";
+    btn.textContent = "입장";
+    btn.addEventListener("click", () => {
+      document.getElementById("room-code-input").value = r.code;
+      document.getElementById("join-room-btn").click();
+    });
+
+    row.appendChild(info);
+    row.appendChild(btn);
+    area.appendChild(row);
+  });
+}
+
 document.getElementById("refresh-rooms-btn").addEventListener("click", async () => {
   const area = document.getElementById("room-list-area");
   area.innerHTML = `<div style="color:#888;font-size:0.8em;padding:4px 0;">불러오는 중...</div>`;
   try {
     const res = await fetch("/room/list");
-    const rooms = await res.json();
-    if (!rooms.length) {
-      area.innerHTML = `<div style="color:#888;font-size:0.8em;padding:4px 0;">활성화된 방이 없습니다.</div>`;
-      return;
-    }
-    area.innerHTML = rooms.map(r => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5c6c0;gap:6px;">
-        <div style="min-width:0;flex:1;">
-          <div style="font-size:0.82em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
-          <div style="font-size:0.72em;color:#888;">${r.code} · ${r.member_count}명</div>
-        </div>
-        <button onclick="document.getElementById('room-code-input').value='${r.code}';document.getElementById('join-room-btn').click();"
-          style="flex-shrink:0;padding:3px 10px;background:#e53935;color:#fff;border:none;border-radius:8px;font-size:0.78em;cursor:pointer;font-weight:700;">입장</button>
-      </div>`).join("");
+    _renderRoomList(await res.json());
   } catch {
     area.innerHTML = `<div style="color:#888;font-size:0.8em;padding:4px 0;">조회 실패</div>`;
   }
