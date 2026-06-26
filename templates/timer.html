@@ -978,7 +978,11 @@
     </div>
     <!-- 참여 후 UI -->
     <div id="room-active-ui" style="display:none;">
-      <div class="room-code-display" id="room-code-display"></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <div class="room-code-display" id="room-code-display" style="flex:1;margin-bottom:0;"></div>
+        <button id="copy-code-btn" title="코드 복사"
+          style="padding:4px 8px;background:#fff;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:0.8em;color:var(--text-sub);">📋</button>
+      </div>
       <div class="room-member-list" id="room-member-list"></div>
       <button class="room-btn room-btn-danger" id="leave-room-btn">방 나가기</button>
     </div>
@@ -1325,22 +1329,30 @@ async function loadMemos() {
     data.memos.forEach(m => {
       const memoItem = document.createElement("div");
       memoItem.className = "memo-item";
-      memoItem.dataset.id = m.id; // id 저장
+      memoItem.dataset.id = m.id;
 
-      memoItem.innerHTML = `
-        <div class="memo-title">
-          <span>${m.title}</span>
-          <div class="memo-actions">
-            <button class="edit-btn">✏️</button>
-            <button class="delete-btn">🗑️</button>
-          </div>
-        </div>
-        <div class="memo-body" style="display:none;">불러오기 전 내용...</div>
-      `;
+      const titleDiv = document.createElement("div");
+      titleDiv.className = "memo-title";
 
+      const titleSpan = document.createElement("span");
+      titleSpan.textContent = m.title; // XSS 방지: textContent 사용
+
+      const actionsDiv = document.createElement("div");
+      actionsDiv.className = "memo-actions";
+      actionsDiv.innerHTML = `<button class="edit-btn">✏️</button><button class="delete-btn">🗑️</button>`;
+
+      titleDiv.appendChild(titleSpan);
+      titleDiv.appendChild(actionsDiv);
+
+      const bodyDiv = document.createElement("div");
+      bodyDiv.className = "memo-body";
+      bodyDiv.style.display = "none";
+      bodyDiv.textContent = "불러오기 전 내용...";
+
+      memoItem.appendChild(titleDiv);
+      memoItem.appendChild(bodyDiv);
       memoContent.appendChild(memoItem);
 
-      // 서버 메모는 placeholder 적용 X
       attachMemoEvents(memoItem, false);
     });
   } catch (err) {
@@ -1395,10 +1407,17 @@ async function loadMemos() {
       counterDisplay.textContent = `${currentCount}/${totalCount}`;
     }
 
-    // 입력값 변경 시 즉시 반영
+    // 횟수 localStorage 복원 (서버에 저장되지 않으므로 로컬 유지)
+    const savedCount = localStorage.getItem("toti_count");
+    if (savedCount) countInput.value = savedCount;
+
+    // 입력값 변경 시 즉시 반영 + 횟수 localStorage 저장
     focusInput.addEventListener("input", updateDisplays);
     breakInput.addEventListener("input", updateDisplays);
-    countInput.addEventListener("input", updateDisplays);
+    countInput.addEventListener("input", () => {
+      updateDisplays();
+      localStorage.setItem("toti_count", countInput.value);
+    });
 
     // 서버에서 값 가져오기
     async function loadTimerData() {
@@ -1421,6 +1440,21 @@ async function loadMemos() {
           document.getElementById("streak-badge").textContent = `🔥 ${data.streak}일`;
           document.getElementById("level-streak-bar").style.display = "flex";
         }
+
+        // 오늘 완료 세션 수 서버에서 로드
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          const dailyRes = await authFetch(`/stats/daily?target_date=${today}`);
+          if (dailyRes.ok) {
+            const daily = await dailyRes.json();
+            if (daily && daily.completed_sessions > 0) {
+              todayCompletedSessions = daily.completed_sessions;
+              const badge = document.getElementById("today-sessions-badge");
+              badge.textContent = `🍅 ${todayCompletedSessions}개`;
+              badge.style.display = "";
+            }
+          }
+        } catch (_) {}
 
         // 표시 업데이트 호출
         updateDisplays();
@@ -1611,24 +1645,36 @@ async function loadMemos() {
       const item = document.createElement("div");
       item.dataset.id = todo.id;
       item.style.cssText = "display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);";
-      item.innerHTML = `
-        <input type="checkbox" ${todo.is_completed ? "checked" : ""}
-          style="cursor:pointer;accent-color:var(--tomato);width:16px;height:16px;">
-        <span style="flex:1;font-size:0.9em;${todo.is_completed ? "text-decoration:line-through;color:var(--text-sub);" : ""}">${todo.content}</span>
-        <button data-del="${todo.id}" style="background:none;border:none;color:var(--text-sub);cursor:pointer;font-size:1em;">✕</button>
-      `;
-      item.querySelector("input").addEventListener("change", async (e) => {
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = todo.is_completed;
+      cb.style.cssText = "cursor:pointer;accent-color:var(--tomato);width:16px;height:16px;flex-shrink:0;";
+
+      const span = document.createElement("span");
+      span.style.cssText = `flex:1;font-size:0.9em;${todo.is_completed ? "text-decoration:line-through;color:var(--text-sub);" : ""}`;
+      span.textContent = todo.content; // XSS 방지: textContent 사용
+
+      const delBtn = document.createElement("button");
+      delBtn.style.cssText = "background:none;border:none;color:var(--text-sub);cursor:pointer;font-size:1em;";
+      delBtn.textContent = "✕";
+
+      cb.addEventListener("change", async (e) => {
         await authFetch(`/timer/api/todos/${todo.id}`, {
           method: "PUT", headers: {"Content-Type":"application/json"},
           body: JSON.stringify({ is_completed: e.target.checked })
         });
-        item.querySelector("span").style.textDecoration = e.target.checked ? "line-through" : "";
-        item.querySelector("span").style.color = e.target.checked ? "var(--text-sub)" : "";
+        span.style.textDecoration = e.target.checked ? "line-through" : "";
+        span.style.color = e.target.checked ? "var(--text-sub)" : "";
       });
-      item.querySelector("button[data-del]").addEventListener("click", async () => {
+      delBtn.addEventListener("click", async () => {
         await authFetch(`/timer/api/todos/${todo.id}`, { method: "DELETE" });
         item.remove();
       });
+
+      item.appendChild(cb);
+      item.appendChild(span);
+      item.appendChild(delBtn);
       todoList.appendChild(item);
     }
 
@@ -2863,6 +2909,19 @@ document.getElementById("join-room-btn").addEventListener("click", async () => {
 
 // 방 나가기
 document.getElementById("leave-room-btn").addEventListener("click", leaveRoom);
+
+// 방 코드 복사
+document.getElementById("copy-code-btn").addEventListener("click", () => {
+  const code = document.getElementById("room-code-display").textContent;
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.getElementById("copy-code-btn");
+    btn.textContent = "✅";
+    setTimeout(() => { btn.textContent = "📋"; }, 1500);
+  }).catch(() => {
+    prompt("방 코드를 복사하세요:", code);
+  });
+});
 
 // 공개 방 목록 조회
 function _renderRoomList(rooms) {

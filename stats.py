@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, extract, func
 from db import get_db, StudyRecord, User
@@ -6,6 +6,7 @@ from user import get_current_user, calc_level
 from datetime import date, timedelta
 from pydantic import BaseModel
 from typing import Dict
+from limiter import limiter
 
 router = APIRouter()
 stats_router = APIRouter(prefix="/stats")
@@ -18,7 +19,9 @@ class SessionRequest(BaseModel):
 
 # 세션 저장
 @router.post("/sessions")
+@limiter.limit("30/minute")
 async def create_session(
+    request: Request,
     body: SessionRequest,
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
